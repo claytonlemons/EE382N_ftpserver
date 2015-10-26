@@ -22,25 +22,10 @@ typedef struct
 	tBoolean isImplemented;
 } FTPCommand;
 
-FTPCommand ftpCommands[];
+extern FTPCommand ftpCommands[];
 
-FTPCommandString ftpCommandIDToString(FTPCommandID commandID)
-{
-	return ftpCommands[commandID].commandString;
-}
+FTPCommandString ftpCommandIDToString(FTPCommandID commandID);
 
-FTPCommandID ftpCommandStringToID(FTPCommandString commandString)
-{
-	FTPCommand *ftpCommandPtr = ftpCommands;
-	while (ftpCommandPtr != NULL)
-	{
-		if (strcmp(commandString, ftpCommandPtr->commandString) == 0)
-		{
-			return ftpCommandPtr->commandID;
-		}
-	}
-
-	return UNKNOWN_COMMAND;
-}
+FTPCommandID ftpCommandStringToID(FTPCommandString commandString);
 
 #endif

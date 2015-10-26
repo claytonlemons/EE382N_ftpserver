@@ -14,3 +14,22 @@ FTPCommand ftpCommands[] =
 	{ UNKNOWN_COMMAND, NULL, false }
 };
 
+
+FTPCommandString ftpCommandIDToString(FTPCommandID commandID)
+{
+	return ftpCommands[commandID].commandString;
+}
+
+FTPCommandID ftpCommandStringToID(FTPCommandString commandString)
+{
+	FTPCommand *ftpCommandPtr = ftpCommands;
+	while (ftpCommandPtr != NULL)
+	{
+		if (strcmp(commandString, ftpCommandPtr->commandString) == 0)
+		{
+			return ftpCommandPtr->commandID;
+		}
+	}
+
+	return UNKNOWN_COMMAND;
+}
