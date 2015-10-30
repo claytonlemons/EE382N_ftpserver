@@ -92,6 +92,9 @@ extern void lwIPNetworkConfigChange(unsigned long ulIPAddr,
                                     unsigned long ulNetMask,
                                     unsigned long ulGWAddr,
                                     unsigned long ulIPMode);
+extern err_t stellarisif_init(struct netif *netif);
+extern void stellarisif_interrupt(struct netif *netif);
+extern void lwip_init(void);
 
 //*****************************************************************************
 //

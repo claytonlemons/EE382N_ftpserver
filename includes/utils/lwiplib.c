@@ -4,20 +4,20 @@
 //
 // Copyright (c) 2008-2013 Texas Instruments Incorporated.  All rights reserved.
 // Software License Agreement
-// 
+//
 // Texas Instruments (TI) is supplying this software for use solely and
 // exclusively on TI's microcontroller products. The software is owned by
 // TI and/or its suppliers, and is protected under applicable copyright
 // laws. You may not combine this software with "viral" open-source
 // software in order to form a larger program.
-// 
+//
 // THIS SOFTWARE IS PROVIDED "AS IS" AND WITH ALL FAULTS.
 // NO WARRANTIES, WHETHER EXPRESS, IMPLIED OR STATUTORY, INCLUDING, BUT
 // NOT LIMITED TO, IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
 // A PARTICULAR PURPOSE APPLY TO THIS SOFTWARE. TI SHALL NOT, UNDER ANY
 // CIRCUMSTANCES, BE LIABLE FOR SPECIAL, INCIDENTAL, OR CONSEQUENTIAL
 // DAMAGES, FOR ANY REASON WHATSOEVER.
-// 
+//
 // This is part of revision 10007 of the Stellaris Firmware Development Package.
 //
 //*****************************************************************************
@@ -34,96 +34,99 @@
 // Include lwIP high-level API code.
 //
 //*****************************************************************************
-#include "third_party/lwip-1.3.2/src/api/api_lib.c"
-#include "third_party/lwip-1.3.2/src/api/api_msg.c"
-#include "third_party/lwip-1.3.2/src/api/err.c"
-#include "third_party/lwip-1.3.2/src/api/netbuf.c"
-#include "third_party/lwip-1.3.2/src/api/netdb.c"
-#include "third_party/lwip-1.3.2/src/api/netifapi.c"
-#include "third_party/lwip-1.3.2/src/api/sockets.c"
-#include "third_party/lwip-1.3.2/src/api/tcpip.c"
+// #include "includes/lwip/src/api/api_lib.c"
+// #include "includes/lwip/src/api/api_msg.c"
+// #include "includes/lwip/src/api/err.c"
+// #include "includes/lwip/src/api/netbuf.c"
+// #include "includes/lwip/src/api/netdb.c"
+// #include "includes/lwip/src/api/netifapi.c"
+// #include "includes/lwip/src/api/sockets.c"
+// #include "includes/lwip/src/api/tcpip.c"
 
 //*****************************************************************************
 //
 // Include the core lwIP TCP/IP stack code.
 //
 //*****************************************************************************
-#include "third_party/lwip-1.3.2/src/core/dhcp.c"
-#include "third_party/lwip-1.3.2/src/core/dns.c"
-#include "third_party/lwip-1.3.2/src/core/init.c"
-#include "third_party/lwip-1.3.2/src/core/mem.c"
-#include "third_party/lwip-1.3.2/src/core/memp.c"
-#include "third_party/lwip-1.3.2/src/core/netif.c"
-#include "third_party/lwip-1.3.2/src/core/pbuf.c"
-#include "third_party/lwip-1.3.2/src/core/raw.c"
-#include "third_party/lwip-1.3.2/src/core/stats.c"
-#include "third_party/lwip-1.3.2/src/core/sys.c"
-#include "third_party/lwip-1.3.2/src/core/tcp.c"
-#include "third_party/lwip-1.3.2/src/core/tcp_in.c"
-#include "third_party/lwip-1.3.2/src/core/tcp_out.c"
-#include "third_party/lwip-1.3.2/src/core/udp.c"
+// #include "includes/lwip/src/core/dhcp.c"
+// #include "includes/lwip/src/core/dns.c"
+// #include "includes/lwip/src/core/init.c"
+// #include "includes/lwip/src/core/mem.c"
+// #include "includes/lwip/src/core/memp.c"
+// #include "includes/lwip/src/core/netif.c"
+// #include "includes/lwip/src/core/pbuf.c"
+// #include "includes/lwip/src/core/raw.c"
+// #include "includes/lwip/src/core/stats.c"
+// #include "includes/lwip/src/core/sys.c"
+// #include "includes/lwip/src/core/tcp.c"
+// #include "includes/lwip/src/core/tcp_in.c"
+// #include "includes/lwip/src/core/tcp_out.c"
+// #include "includes/lwip/src/core/udp.c"
 
 //*****************************************************************************
 //
 // Include the IPV4 code.
 //
 //*****************************************************************************
-#include "third_party/lwip-1.3.2/src/core/ipv4/autoip.c"
-#include "third_party/lwip-1.3.2/src/core/ipv4/icmp.c"
-#include "third_party/lwip-1.3.2/src/core/ipv4/igmp.c"
-#include "third_party/lwip-1.3.2/src/core/ipv4/inet.c"
-#include "third_party/lwip-1.3.2/src/core/ipv4/inet_chksum.c"
-#include "third_party/lwip-1.3.2/src/core/ipv4/ip.c"
-#include "third_party/lwip-1.3.2/src/core/ipv4/ip_addr.c"
-#include "third_party/lwip-1.3.2/src/core/ipv4/ip_frag.c"
+// #include "includes/lwip/src/core/ipv4/autoip.c"
+// #include "includes/lwip/src/core/ipv4/icmp.c"
+// #include "includes/lwip/src/core/ipv4/igmp.c"
+// #include "includes/lwip/src/core/ipv4/inet.c"
+// #include "includes/lwip/src/core/ipv4/inet_chksum.c"
+// #include "includes/lwip/src/core/ipv4/ip.c"
+// #include "includes/lwip/src/core/ipv4/ip_addr.c"
+// #include "includes/lwip/src/core/ipv4/ip_frag.c"
 
 //*****************************************************************************
 //
 // Include the lwIP SNMP code.
 //
 //*****************************************************************************
-#include "third_party/lwip-1.3.2/src/core/snmp/asn1_dec.c"
-#include "third_party/lwip-1.3.2/src/core/snmp/asn1_enc.c"
-#include "third_party/lwip-1.3.2/src/core/snmp/mib2.c"
-#include "third_party/lwip-1.3.2/src/core/snmp/mib_structs.c"
-#include "third_party/lwip-1.3.2/src/core/snmp/msg_in.c"
-#include "third_party/lwip-1.3.2/src/core/snmp/msg_out.c"
+// #include "includes/lwip/src/core/snmp/asn1_dec.c"
+// #include "includes/lwip/src/core/snmp/asn1_enc.c"
+// #include "includes/lwip/src/core/snmp/mib2.c"
+// #include "includes/lwip/src/core/snmp/mib_structs.c"
+// #include "includes/lwip/src/core/snmp/msg_in.c"
+// #include "includes/lwip/src/core/snmp/msg_out.c"
 
 //*****************************************************************************
 //
 // Include the Network Interface code.
 //
 //*****************************************************************************
-#include "third_party/lwip-1.3.2/src/netif/etharp.c"
-#include "third_party/lwip-1.3.2/src/netif/loopif.c"
+#include "netif/etharp.h"
+#include "lwip/autoip.h"
+#include "lwip/dhcp.h"
+// #include "includes/lwip/src/netif/etharp.c"
+// #include "includes/lwip/src/netif/loopif.c"
 
 //*****************************************************************************
 //
 // Include the Network Interface PPP code.
 //
 //*****************************************************************************
-#include "third_party/lwip-1.3.2/src/netif/ppp/auth.c"
-#include "third_party/lwip-1.3.2/src/netif/ppp/chap.c"
-#include "third_party/lwip-1.3.2/src/netif/ppp/chpms.c"
-#include "third_party/lwip-1.3.2/src/netif/ppp/fsm.c"
-#include "third_party/lwip-1.3.2/src/netif/ppp/ipcp.c"
-#include "third_party/lwip-1.3.2/src/netif/ppp/lcp.c"
-#include "third_party/lwip-1.3.2/src/netif/ppp/magic.c"
-#include "third_party/lwip-1.3.2/src/netif/ppp/md5.c"
-#include "third_party/lwip-1.3.2/src/netif/ppp/pap.c"
-#include "third_party/lwip-1.3.2/src/netif/ppp/ppp.c"
-#include "third_party/lwip-1.3.2/src/netif/ppp/ppp_oe.c"
-#include "third_party/lwip-1.3.2/src/netif/ppp/randm.c"
-#include "third_party/lwip-1.3.2/src/netif/ppp/vj.c"
+// #include "includes/lwip/src/netif/ppp/auth.c"
+// #include "includes/lwip/src/netif/ppp/chap.c"
+// #include "includes/lwip/src/netif/ppp/chpms.c"
+// #include "includes/lwip/src/netif/ppp/fsm.c"
+// #include "includes/lwip/src/netif/ppp/ipcp.c"
+// #include "includes/lwip/src/netif/ppp/lcp.c"
+// #include "includes/lwip/src/netif/ppp/magic.c"
+// #include "includes/lwip/src/netif/ppp/md5.c"
+// #include "includes/lwip/src/netif/ppp/pap.c"
+// #include "includes/lwip/src/netif/ppp/ppp.c"
+// #include "includes/lwip/src/netif/ppp/ppp_oe.c"
+// #include "includes/lwip/src/netif/ppp/randm.c"
+// #include "includes/lwip/src/netif/ppp/vj.c"
 
 //*****************************************************************************
 //
 // Include Stellaris-specific lwIP interface/porting layer code.
 //
 //*****************************************************************************
-#include "third_party/lwip-1.3.2/ports/stellaris/perf.c"
-#include "third_party/lwip-1.3.2/ports/stellaris/sys_arch.c"
-#include "third_party/lwip-1.3.2/ports/stellaris/netif/stellarisif.c"
+// #include "includes/lwip/ports/stellaris/perf.c"
+// #include "includes/lwip/ports/stellaris/sys_arch.c"
+// #include "includes/lwip/ports/stellaris/netif/stellarisif.c"
 
 //*****************************************************************************
 //
