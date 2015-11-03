@@ -15,6 +15,7 @@
 #include "driverlib/ethernet.h"
 #include "drivers/rit128x96x4.h"
 #include "driverlib/interrupt.h"
+#include "FtpProtocolInterpreter.h"
 
 #include "lwip/tcp.h"
 
@@ -149,44 +150,6 @@ lwIPHostTimerHandler(void)
     }
 }
 
-static err_t
-ftp_accept(void *arg, struct tcp_pcb *pcb, err_t err)
-{
-  LWIP_UNUSED_ARG(arg);
-  LWIP_UNUSED_ARG(err);
-  RIT128x96x4Enable(1000000);
-  RIT128x96x4StringDraw("FTP_Accept Called!", 0, 80, 15);
-  RIT128x96x4Disable();
-
-  /* Tell TCP that this is the structure we wish to be passed for our
-     callbacks. */
-  //tcp_arg(pcb, hs);
-
-  /* Tell TCP that we wish to be informed of incoming data by a call
-     to the http_recv() function. */
-  //tcp_recv(pcb, http_recv);
-
-  //tcp_err(pcb, conn_err);
-
-  //tcp_poll(pcb, http_poll, 4);
-  return ERR_OK;
-}
-//////////////////////////////////////////////////////////////////
-void
-ftp_init(void)
-{
-  struct tcp_pcb *pcb;
-
-  // Create new TCP control block
-  pcb = tcp_new();
-  // Bind the control block to any IP address and port 21
-  tcp_bind(pcb, IP_ADDR_ANY, 21);
-  // Tell TCP to listen to this port/control block
-  pcb = tcp_listen(pcb);
-  // Used to specify the function that should be called when
-  // a listening connection is established
-  tcp_accept(pcb, ftp_accept);
-}
 
 int main(void) {
     unsigned long ulUser0, ulUser1;
@@ -266,7 +229,7 @@ int main(void) {
     LocatorAppTitleSet("FTP Server");
 
     // Initialize a sample FTP server.
-    ftp_init();
+    ftp_Init();
 
     //
     // Loop forever.  All the work is done in interrupt handlers.
