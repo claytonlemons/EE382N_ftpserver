@@ -9,24 +9,13 @@
 #include <string.h>
 #include <stdlib.h>
 #include "ftp_commands.h"
+#include "ftp_control_block.h"
+#include "ftp_command_executor.h"
 #include "FtpProtocolInterpreter.h"
 #include "utils/lwiplib.h"
 #include "drivers/rit128x96x4.h"
 
-// This enum defines the possible states of the FTP state machine
-typedef enum {
-    WAIT_FOR_USERNAME,
-    WAIT_FOR_PASSWORD,
-    READY,
-    DATA_CONN_OPENED
-} FtpPiSts;
 
-// This enum defines the structure used to keep track of the state of the
-// protocol interpreter.
-typedef struct FtpPiState{
-    FtpPiSts PresState;
-    struct tcp_pcb *DataConnection;
-} FtpPiState;
 
 // This method is used to transmit messages to the FTP client.
 // The messages are sent through the TCP pcb module using the
@@ -56,23 +45,38 @@ static void ftp_SendMsg(struct tcp_pcb *pcb, char *msg)
     }
 }
 
-// This method is used to open a TCP data connection
-//static err_t ftp_OpenDataConnection(struct tcp_pcb *pcb, FtpPiState *PI_SM){
-    // err_t errStatus;
-    // Open a data connection on the received FtpPiState structure
-    // PI_SM->DataConnection = tcp_new();
-    // Bind the data connection to port 20 of the server's IP
-    // tcp_bind(PI_SM->DataConnection, (ip_addr_t*)&pcb->local_ip, 20);
-    // tcp_connect(fsm->datapcb, &fsm->dataip, fsm->dataport, ftpd_dataconnected);
-    // errStatus = tcp_connect(struct tcp_pcb *pcb, struct ip_addr *ipaddr, u16_t port,
-      // err_t (* connected)(void *arg, struct tcp_pcb *tpcb, err_t err))
+// This method is used to open a TCP data connection.
+// TODO: Need to define ftp_DataConnected. The function that will
+// be called when the data connection is opened.
+static err_t ftp_OpenDataConnection(struct tcp_pcb *pcb,
+    FtpPiStruct_t *PI_Struct){
 
-//}
+    err_t errStatus;
+    // Open a data connection on the received FtpPiStruct_t structure
+    PI_Struct->DataConnection = tcp_new();
+    // Bind the data connection to port 20 of the server's IP
+    tcp_bind(PI_Struct->DataConnection, &pcb->local_ip, 20);
+    //TODO: Need:
+    // 1. A way to convert our hostNumber to a struct ip_addr.
+    // 2. A way to convert our portNumber type to a u16_t.
+    // 3. A function to process data requests.
+    /*errStatus = tcp_connect(
+   	    PI_Struct->DataConnection,
+        &PI_Struct->hostPort->hostNumber,
+		(u16_t)PI_Struct->hostPort->portNumber,
+	    ftp_DataConnected);*/
+    if (errStatus == ERR_OK)
+        PI_Struct->PresState = DATA_CONN_OPEN;
+    return errStatus;
+}
+
+// This method is used to close a data connection
+static err_t ftp_CloseDataConnection (FtpPiStruct_t *PI_Struct){
+    return tcp_close(PI_Struct->DataConnection);
+}
 
 
 // This method is used to take action when the TCP module receives data for us.
-// TODO: Convert the command using ftpCommandStringToID, if the command is
-// found execute it. If not, send msg502
 static err_t ftp_RxCmd(void *arg, struct tcp_pcb *pcb, struct pbuf *p,
     err_t err)
 {
@@ -80,13 +84,13 @@ static err_t ftp_RxCmd(void *arg, struct tcp_pcb *pcb, struct pbuf *p,
     RIT128x96x4StringDraw("ftp_RxCmd Called!", 0, 80, 15);
     RIT128x96x4Disable();
 
-    //  FtpPiState *PI_SM = arg;
+    FtpPiStruct_t *PI_Struct = arg;
 
     // We need to tell the TCP module that the data has been accepted.
     tcp_recved(pcb, p->tot_len);
 
     char *RxData;
-    char *Command;
+    char *CommandStr;
     char *Payload = NULL;
 
     // We process the RX data only if no errors occurred and the input buffer
@@ -100,42 +104,38 @@ static err_t ftp_RxCmd(void *arg, struct tcp_pcb *pcb, struct pbuf *p,
         // RIT128x96x4Disable();
 
         // The first entry is the first character of the command. Set the
-        // Command pointer to that location.
-        Command = RxData;
+        // CommandStr pointer to that location.
+        CommandStr = RxData;
 
         int i;
-        // In this loop we do two things:
-        // + Split the command from the payload by inserting a \0.
-        // + Replace the \n character with \0
+        // In this loop we split the command from the payload by replacing the
+        // ' ' between them with a \0
         for (i=0; i< p->tot_len; i++){
-            if (*RxData == '\n'){
-                *RxData = '\0';
-                break;
-            } else if(*RxData == ' ' && Payload == NULL){
-                // The string of the incoming ends when we encounter the first
-                // space character. Replace the ' ' with a \0 to mark the end
-                // of the command.
+            if(*RxData == ' '){
+                // The string of the incoming command ends when we encounter the
+                // first space character. Replace the ' ' with a \0 to mark the
+                // end of the command.
                 *RxData = '\0';
                 // The payload of the command starts after the first space
                 // character.
                 Payload = RxData + 1;
+                break;
             }
             RxData++;
         }
 
-        // if(ftpCommandStringToID(Command) == UNKNOWN_COMMAND){
-            // Send an error message when the command is not recognized
-            // ftp_SendMsg(pcb, msg502);
-        // }
-        // else{
-            // executeCommand(ftpCommandStringToID(Command), PI_SM)
-            // ftp_SendMsg(pcb, msg331);
-        // }
-            ftp_SendMsg(pcb, msg331);
-
+        // Convert the command string to an FTPCommandString
+        FTPCommandID ReceivedCommand = ftpCommandStringToID(CommandStr);
+        char * MessageToSend = NULL;
+        // Execute the command
+        // TODO: The executeCommand function needs to receive a FtpPiStruct_t *
+        //executeCommand(ReceivedCommand, Payload, MessageToSend, PI_Struct);
+        executeCommand(ReceivedCommand, Payload, MessageToSend);
+        // Send the response after executing the command
+        ftp_SendMsg(pcb, MessageToSend);
 
         RIT128x96x4Enable(1000000);
-        RIT128x96x4StringDraw((const char *)Command, 0, 60, 15);
+        RIT128x96x4StringDraw((const char *)CommandStr, 0, 60, 15);
         RIT128x96x4StringDraw((const char *)Payload, 0, 80, 15);
         RIT128x96x4Disable();
 
@@ -150,7 +150,7 @@ static err_t ftp_RxCmd(void *arg, struct tcp_pcb *pcb, struct pbuf *p,
 // completes a transmission.
 static err_t ftp_CmdSent(void *arg, struct tcp_pcb *pcb, u16_t len)
 {
-	//  FtpPiState *PI_SM = arg;
+	//  FtpPiStruct_t *PI_Struct = arg;
 
     // Check the present state of the TCP state machine. If it is greater than
     // "ESTABLISHED", we simply return. The only states that are < ESTABLISHED
@@ -171,7 +171,7 @@ static err_t ftp_CmdSent(void *arg, struct tcp_pcb *pcb, u16_t len)
 
 // TODO: Need to implement ftp_Poll. We should check the state of the
 // data transfer process and execute the appropriate command (file list,
-// send file, etc.
+// send file, etc. We may or may not need this...
 static err_t ftp_Poll(void *arg, struct tcp_pcb *pcb)
 {
 
@@ -186,7 +186,7 @@ static err_t ftp_Poll(void *arg, struct tcp_pcb *pcb)
 // TODO:We need an ftp__err function to handle errors.
 static void ftp_PiError(void *arg, err_t err)
 {
-	//  FtpPiState *PI_SM = arg;
+	//  FtpPiStruct_t *PI_Struct = arg;
     RIT128x96x4Enable(1000000);
     RIT128x96x4StringDraw("ftp_PiError Called!", 0, 80, 15);
     RIT128x96x4Disable();
@@ -209,7 +209,7 @@ static err_t ftp_Accept(void *arg, struct tcp_pcb *pcb, err_t err)
     // Used to specify the argument that should be passed callback
     // functions. This is a TcpPi struct that contains the state of the
     // FTP protocol interpreter state machine.
-    FtpPiState *PI_State = NULL;
+    FtpPiStruct_t *PI_State = NULL;
     PI_State->PresState = WAIT_FOR_USERNAME;
     tcp_arg(pcb, PI_State);
 
