@@ -1,39 +1,7 @@
+#include "ftp_control_block.h"
 #include <lwip/src/include/ipv4/lwip/ip_addr.h>
 #include <stdlib.h>
 #include <stdint.h>
-
-typedef enum
-{
-	FORMCODE_UNKNOWN,
-	FORMCODE_N,
-	FORMCODE_T,
-	FORMCODE_C	
-} FormCode;
-
-typedef enum
-{
-	TYPECODE_UNKNOWN,
-	TYPECODE_A,
-	TYPECODE_E,
-	TYPECODE_I,
-	TYPECODE_L
-} TypeCode;
-
-typedef enum
-{
-	STRUCTURECODE_UNKNOWN,
-	STRUCTURECODE_F,
-	STRUCTURECODE_R,
-	STRUCTURECODE_P,
-} StructureCode;
-
-typedef enum
-{
-	MODECODE_UNKNOWN,
-	MODECODE_S,
-	MODECODE_B,
-	MODECODE_C
-} ModeCode;
 
 const char * burnWhitespace(const char *arguments);
 const char * parseEOL(const char *arguments);
