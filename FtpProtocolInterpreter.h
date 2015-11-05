@@ -5,6 +5,7 @@
  *      Author: Jose Luis Loyola
  */
 #include "utils/lwiplib.h"
+#include "ftp_control_block.h"
 
 #ifndef FTPPROTOCOLINTERPRETER_H_
 #define FTPPROTOCOLINTERPRETER_H_
@@ -22,5 +23,8 @@
 
 void ftp_Init(void);
 static void ftp_SendMsg(struct tcp_pcb *pcb, char *msg);
+static err_t ftp_OpenDataConnection(struct tcp_pcb *pcb,
+    FtpPiStruct_t *PI_Struct);
+static err_t ftp_CloseDataConnection (FtpPiStruct_t *PI_Struct);
 
 #endif /* FTPPROTOCOLINTERPRETER_H_ */
