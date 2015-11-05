@@ -7,11 +7,17 @@
 
 #include "ftp_commands.h"
 
-FTPCommand ftpCommands[] =
+typedef struct
 {
-	#define FTP_COMMAND_XMACRO(commandID, isImplemented) { commandID, "#commandId", isImplemented },
+	FTPCommandID commandID;
+	FTPCommandString commandString;
+} FTPCommand;
+
+static FTPCommand ftpCommands[] =
+{
+	#define FTP_COMMAND_XMACRO(commandID) { FTPCOMMANDID_##commandID, "#commandId"},
 	#include "ftp_commands.def"
-	{ UNKNOWN_COMMAND, NULL, false }
+	{ UNKNOWN_COMMAND, NULL }
 };
 
 
