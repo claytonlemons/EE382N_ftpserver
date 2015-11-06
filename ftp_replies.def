@@ -1,0 +1,41 @@
+FTP_REPLY_XMACRO(110, "MARK %s = %s") // Restart marker reply. Must follow format: MARK yyyy = mmmm
+FTP_REPLY_XMACRO(120, "Service ready in %d minutes.")
+FTP_REPLY_XMACRO(125, "Data connection already open; transfer starting.")
+FTP_REPLY_XMACRO(150, "File status okay; about to open data connection.")
+FTP_REPLY_XMACRO(200, "Command okay.")
+FTP_REPLY_XMACRO(202, "Command not implemented, superfluous at this site.")
+FTP_REPLY_XMACRO(211, "%s") // System status, or system help reply.
+FTP_REPLY_XMACRO(212, "%s") // Directory status.
+FTP_REPLY_XMACRO(213, "%s") // File status.
+FTP_REPLY_XMACRO(214, "%s") // Help message. On how to use the server or the meaning of a particular non-standard command.  This reply is useful only to the human user.
+FTP_REPLY_XMACRO(215, "%s") // NAME system type. Where NAME is an official system name from the list in the Assigned Numbers document.
+FTP_REPLY_XMACRO(220, "Service ready for new user.")
+FTP_REPLY_XMACRO(221, "Service closing control connection. Logged out if appropriate.")
+FTP_REPLY_XMACRO(225, "Data connection open; no transfer in progress.")
+FTP_REPLY_XMACRO(226, "Closing data connection. Requested file action successful") // for example, file transfer or file abort
+FTP_REPLY_XMACRO(227, "Entering Passive Mode %d.%d.%d.%d:%d") // (h1,h2,h3,h4,p1,p2)
+FTP_REPLY_XMACRO(230, "User logged in, proceed.")
+FTP_REPLY_XMACRO(250, "Requested file action okay, completed.")
+FTP_REPLY_XMACRO(257, "\"%d\" created.") // PATHNAME created
+FTP_REPLY_XMACRO(331, "User name okay, need password.")
+FTP_REPLY_XMACRO(332, "Need account for login.")
+FTP_REPLY_XMACRO(350, "Requested file action pending further information.")
+FTP_REPLY_XMACRO(421, "Service not available, closing control connection.") // This may be a reply to any command if the service knows it must shut down.")
+FTP_REPLY_XMACRO(425, "Can't open data connection.")
+FTP_REPLY_XMACRO(426, "Connection closed; transfer aborted.")
+FTP_REPLY_XMACRO(450, "Requested file action not taken. File unavailable") // for example, file busy
+FTP_REPLY_XMACRO(451, "Requested action aborted: local error in processing.")
+FTP_REPLY_XMACRO(452, "Requested action not taken. Insufficient storage space in system.")
+FTP_REPLY_XMACRO(500, "Syntax error, command unrecognized.") // This may include errors such as command line too long.
+FTP_REPLY_XMACRO(501, "Syntax error in parameters or arguments.")
+FTP_REPLY_XMACRO(502, "Command not implemented.")
+FTP_REPLY_XMACRO(503, "Bad sequence of commands.")
+FTP_REPLY_XMACRO(504, "Command not implemented for that parameter.")
+FTP_REPLY_XMACRO(530, "Not logged in.")
+FTP_REPLY_XMACRO(532, "Need account for storing files.")
+FTP_REPLY_XMACRO(550, "Requested action not taken. File unavailable.") // for example, file not found, no access
+FTP_REPLY_XMACRO(551, "Requested action aborted: page type unknown.")
+FTP_REPLY_XMACRO(552, "Requested file action aborted. Exceeded storage allocation.") // for current directory or dataset
+FTP_REPLY_XMACRO(553, "Requested action not taken. File name not allowed.")
+
+#undef FTP_REPLY_XMACRO

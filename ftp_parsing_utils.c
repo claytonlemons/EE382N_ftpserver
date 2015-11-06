@@ -1,5 +1,6 @@
 #include "ftp_parsing_utils.h"
 
+#include <lwip/src/include/ipv4/lwip/ip_addr.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <ctype.h>
@@ -85,19 +86,26 @@ const char * parseByteSize(const char *arguments, uint8_t *byteSize)
 	}
 }
 
-const char * parseHostNumber(const char *arguments, HostNumber *hostNumber)
+const char * parseHostPort(const char *arguments, struct ip_addr *hostNumber, uint16_t *portNumber)
 {
+	uint8_t *hostNumberAsByteArray = (uint8_t *) &hostNumber->addr;
+	uint8_t *portNumberAsByteArray = (uint8_t *) portNumber;
+
+	// @TODO: Depending on the endianness of the system, we may need to change the order
+	// in which we index the byte arrays below.
 	size_t bytesScanned = 0;
 	if 
 	(
 		sscanf
 		(
 			arguments, 
-			"%hhu,%hhu,%hhu,%hhu%n", 
-			&hostNumber->octet1,
-			&hostNumber->octet2,
-			&hostNumber->octet3,
-			&hostNumber->octet4,
+			"%hhu,%hhu,%hhu,%hhu,%hhu,%hhu%n",
+			&hostNumberAsByteArray[0],
+			&hostNumberAsByteArray[1],
+			&hostNumberAsByteArray[2],
+			&hostNumberAsByteArray[3],
+			&portNumberAsByteArray[0],
+			&portNumberAsByteArray[1],
 			&bytesScanned
 		) == 4
 	)
@@ -108,55 +116,6 @@ const char * parseHostNumber(const char *arguments, HostNumber *hostNumber)
 	{
 		return NULL;
 	}
-}
-
-const char * parsePortNumber(const char *arguments, PortNumber *portNumber)
-{
-	size_t bytesScanned = 0;
-	if 
-	(
-		sscanf
-		(
-			arguments, 
-			"%hhu,%hhu%n", 
-			&portNumber->highByte,
-			&portNumber->lowByte,
-			&bytesScanned
-		) == 2
-	)
-	{
-		return arguments + bytesScanned;
-	}
-	else
-	{
-		return NULL;
-	}
-}
-
-const char * parseHostPort(const char *arguments, HostPort *hostPort)
-{
-	arguments = parseHostNumber(arguments, &hostPort->hostNumber);
-	if (arguments == NULL)
-	{
-		return NULL;
-	}
-	
-	if (arguments[0] == ',')
-	{
-		arguments++;
-	}
-	else
-	{
-		return NULL;
-	}
-	
-	arguments = parsePortNumber(arguments, &hostPort->portNumber);
-	if (arguments == NULL)
-	{
-		return NULL;
-	}
-	
-	return arguments;
 }
 
 const char * parseDecimalInteger(const char *arguments, uint32_t *decimalInteger)
