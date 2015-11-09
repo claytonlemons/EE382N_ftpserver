@@ -15,7 +15,7 @@ typedef struct
 
 static FTPCommand ftpCommands[] =
 {
-	#define FTP_COMMAND_XMACRO(commandID) { FTPCOMMANDID_##commandID, "#commandId"},
+	#define FTP_COMMAND_XMACRO(commandID) { FTPCOMMANDID_##commandID, #commandID},
 	#include "ftp_commands.def"
 	{ UNKNOWN_COMMAND, NULL }
 };
@@ -34,7 +34,9 @@ FTPCommandID ftpCommandStringToID(FTPCommandString commandString)
 		if (strcmp(commandString, ftpCommandPtr->commandString) == 0)
 		{
 			return ftpCommandPtr->commandID;
-		}
+		} else{
+            ftpCommandPtr++;
+        }
 	}
 
 	return UNKNOWN_COMMAND;

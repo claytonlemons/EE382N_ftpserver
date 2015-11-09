@@ -20,6 +20,7 @@
 #define msg331 "331 User name OK, need password\r\n"
 #define msg502 "502 Command not implemented\r\n"
 
+#define kReplyBufferLength 128
 
 void ftp_Init(void);
 static void ftp_SendMsg(struct tcp_pcb *pcb, char *msg);

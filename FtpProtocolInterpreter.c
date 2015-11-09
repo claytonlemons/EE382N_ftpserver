@@ -9,6 +9,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "ftp_commands.h"
+#include "ftp_replies.h"
 #include "ftp_control_block.h"
 #include "ftp_command_executor.h"
 #include "FtpProtocolInterpreter.h"
@@ -22,7 +23,7 @@
 // tcp_write.
 static void ftp_SendMsg(struct tcp_pcb *pcb, char *msg)
 {
-	char Buffer[128];
+	char Buffer[kReplyBufferLength];
     sprintf(Buffer, (const char *)msg);
     int MsgLength;
     MsgLength = strlen(Buffer);
@@ -55,7 +56,7 @@ static err_t ftp_OpenDataConnection(struct tcp_pcb *pcb,
     // Open a data connection on the received FtpPiStruct_t structure
     PI_Struct->DataConnection = tcp_new();
     // Bind the data connection to port 20 of the server's IP
-    tcp_bind(PI_Struct->DataConnection, &pcb->local_ip, 20);
+    errStatus = tcp_bind(PI_Struct->DataConnection, &pcb->local_ip, 20);
     //TODO: Need:
     // 1. A way to convert our hostNumber to a struct ip_addr.
     // 2. A way to convert our portNumber type to a u16_t.
@@ -99,9 +100,9 @@ static err_t ftp_RxCmd(void *arg, struct tcp_pcb *pcb, struct pbuf *p,
 		// Grab the data from the input buffer.
         RxData = p->payload;
 
-        // RIT128x96x4Enable(1000000);
-        // RIT128x96x4StringDraw((const char *)RxData, 0, 80, 15);
-        // RIT128x96x4Disable();
+        RIT128x96x4Enable(1000000);
+        RIT128x96x4StringDraw((const char *)RxData, 0, 80, 15);
+        RIT128x96x4Disable();
 
         // The first entry is the first character of the command. Set the
         // CommandStr pointer to that location.
@@ -126,11 +127,11 @@ static err_t ftp_RxCmd(void *arg, struct tcp_pcb *pcb, struct pbuf *p,
 
         // Convert the command string to an FTPCommandString
         FTPCommandID ReceivedCommand = ftpCommandStringToID(CommandStr);
-        char * MessageToSend = NULL;
+        char MessageToSend[kReplyBufferLength];
+
         // Execute the command
-        // TODO: The executeCommand function needs to receive a FtpPiStruct_t *
-        //executeCommand(ReceivedCommand, Payload, MessageToSend, PI_Struct);
-        executeCommand(ReceivedCommand, Payload, MessageToSend);
+        executeCommand(ReceivedCommand, Payload, MessageToSend,
+            kReplyBufferLength, PI_Struct);
         // Send the response after executing the command
         ftp_SendMsg(pcb, MessageToSend);
 
@@ -235,6 +236,7 @@ static err_t ftp_Accept(void *arg, struct tcp_pcb *pcb, err_t err)
     tcp_poll(pcb, ftp_Poll, 1);
 
     // Send msg220 to let the user know the server received the request.
+    // TODO: replace this response with ftpReplyFormatStrings
     ftp_SendMsg(pcb, msg220);
     return ERR_OK;
 }
