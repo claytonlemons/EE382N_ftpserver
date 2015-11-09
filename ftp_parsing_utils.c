@@ -30,13 +30,14 @@ const char * parseString(const char *arguments, char stringBuffer[], size_t stri
 
 	while
 	(
-		arguments[i] != '\13' /* carriage return */ &&
-		arguments[i] != '\10' /* line feed */ &&
-		arguments[i] != '\32' /* space */ &&
+		arguments[i] != '\r' /* carriage return */ &&
+		arguments[i] != '\n' /* line feed */ &&
+		arguments[i] != ' ' /* space */ &&
 		i < stringBufferLength
 	)
 	{
 		stringBuffer[i] = arguments[i];
+		i++;
 	}
 
 	if (i > 0 && i < stringBufferLength)
