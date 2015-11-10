@@ -10,27 +10,12 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include "fatfs/src/FF.h"
-typedef struct
-{
-	uint8_t octet1;
-	uint8_t octet2;
-	uint8_t octet3;
-	uint8_t octet4;
-} HostNumber;
+#include <lwip/src/include/ipv4/lwip/ip_addr.h>
 
-// @TODO: Is it highByte/lowByte really what we should be calling these fields?
 typedef struct
 {
-	uint8_t highByte;
-	uint8_t lowByte;
-} PortNumber;
-
-// @TODO: No command actually takes a HostNumber or PortNumber by itself.
-// Do we really need separate structs and parsing functions for them?
-typedef struct
-{
-	HostNumber hostNumber;
-	PortNumber portNumber;
+	struct ip_addr hostNumber;
+	uint16_t portNumber;
 } HostPort;
 
 typedef enum

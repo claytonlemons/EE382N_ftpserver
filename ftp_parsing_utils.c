@@ -1,10 +1,12 @@
 #include "ftp_parsing_utils.h"
 
+#include "dynamic_string.h"
 #include <lwip/src/include/ipv4/lwip/ip_addr.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <ctype.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 const char * burnWhitespace(const char *arguments)
 {
@@ -24,54 +26,59 @@ const char * parseEOL(const char *arguments)
 	}
 }
 
-const char * parseString(const char *arguments, char stringBuffer[], size_t stringBufferLength)
+const char * parseString(const char *arguments, DynamicString *stringBuffer)
 {
-	size_t i = 0;
+	size_t stringLength = 0;	
 
 	while
 	(
-		arguments[i] != '\r' /* carriage return */ &&
-		arguments[i] != '\n' /* line feed */ &&
-		arguments[i] != ' ' /* space */ &&
-		i < stringBufferLength
+		*arguments != '\r' /* carriage return */ &&
+		*arguments != '\n' /* line feed */ &&
+		*arguments != ' ' /* space */
 	)
 	{
-		stringBuffer[i] = arguments[i];
-		i++;
+		stringLength++;
+		arguments++;
 	}
 
-	if (i > 0 && i < stringBufferLength)
+	if (stringLength > stringBuffer->length)
 	{
-		return arguments + i;
+		if (resizeDynamicString(stringBuffer, stringLength) == false)
+		{
+			return NULL;
+		}
 	}
-	else
-	{
-		return NULL;
-	}
+
+	memcpy(stringBuffer->buffer, arguments - stringLength, stringLength);
+
+	return arguments;
 }
 
-const char * parsePrintableString(const char *arguments, char printableStringBuffer[], size_t printableStringBufferLength)
+const char * parsePrintableString(const char *arguments, DynamicString *stringBuffer)
 {
-	size_t i = 0;
+	size_t stringLength = 0;
 
 	while
 	(
-		arguments[i] <= (char) 126 /* ~ */ &&
-		arguments[i] >= (char) 33 /* ! */ &&
-		i < printableStringBufferLength
+		*arguments <= (char) 126 /* ~ */ &&
+		*arguments >= (char) 33 /* ! */
 	)
 	{
-		printableStringBuffer[i] = arguments[i];
+		stringLength++;
+		arguments++;
 	}
 
-	if (i > 0 && i < printableStringBufferLength)
+	if (stringLength > stringBuffer->length)
 	{
-		return arguments + i;
+		if (resizeDynamicString(stringBuffer, stringLength) == false)
+		{
+			return NULL;
+		}
 	}
-	else
-	{
-		return NULL;
-	}
+
+	memcpy(stringBuffer->buffer, arguments - stringLength, stringLength);
+
+	return arguments;
 }
 
 const char * parseByteSize(const char *arguments, uint8_t *byteSize)
@@ -87,10 +94,10 @@ const char * parseByteSize(const char *arguments, uint8_t *byteSize)
 	}
 }
 
-const char * parseHostPort(const char *arguments, struct ip_addr *hostNumber, uint16_t *portNumber)
+const char * parseHostPort(const char *arguments, HostPort *hostPort)
 {
-	uint8_t *hostNumberAsByteArray = (uint8_t *) &hostNumber->addr;
-	uint8_t *portNumberAsByteArray = (uint8_t *) portNumber;
+	uint8_t *hostNumberAsByteArray = (uint8_t *) &(hostPort->hostNumber.addr);
+	uint8_t *portNumberAsByteArray = (uint8_t *) &(hostPort->portNumber);
 
 	// @TODO: Depending on the endianness of the system, we may need to change the order
 	// in which we index the byte arrays below.
@@ -99,16 +106,16 @@ const char * parseHostPort(const char *arguments, struct ip_addr *hostNumber, ui
 	(
 		sscanf
 		(
-			arguments, 
+			arguments,
 			"%hhu,%hhu,%hhu,%hhu,%hhu,%hhu%n",
-			&hostNumberAsByteArray[0],
-			&hostNumberAsByteArray[1],
-			&hostNumberAsByteArray[2],
 			&hostNumberAsByteArray[3],
-			&portNumberAsByteArray[0],
+			&hostNumberAsByteArray[2],
+			&hostNumberAsByteArray[1],
+			&hostNumberAsByteArray[0],
 			&portNumberAsByteArray[1],
+			&portNumberAsByteArray[0],
 			&bytesScanned
-		) == 4
+		) == 6
 	)
 	{
 		return arguments + bytesScanned;

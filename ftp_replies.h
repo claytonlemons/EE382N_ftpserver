@@ -1,11 +1,10 @@
 #ifndef FTP_REPLIES_H_
 #define FTP_REPLIES_H_
 
+#include "dynamic_string.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-
-typedef const char *const FTPReplyFormatString;
 
 typedef enum
 {
@@ -27,6 +26,6 @@ typedef enum
 // Returns true if the formatted string was written completely to the buffer.
 // If false, either the client should allocate a larger buffer and try again, or an
 // encoding error was encountered
-bool formatFTPReply(FTPReplyID replyID, char *replyBuffer, size_t replyBufferLength, ...);
+bool formatFTPReply(FTPReplyID replyID, DynamicString *replyBuffer, ...);
 
 #endif
