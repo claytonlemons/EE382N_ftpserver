@@ -12,6 +12,7 @@
 #include "ftp_control_block.h"
 #include "ftp_replies.h"
 #include "ftp_parsing_utils.h"
+#include "UartDebug.h"
 
 void executeCommand
 (
@@ -54,6 +55,7 @@ void executeCommand_USER
     PI_Struct->PresState = WAIT_FOR_PASSWORD;
     // Return reply 331 to let the user know everything is correct
     formatFTPReply(FTPREPLYID_331, reply);
+    UARTSendString("USER CMD Executed\r\n", 19);
 
 }
 
@@ -79,6 +81,7 @@ void executeCommand_PASS
     PI_Struct->PresState = READY;
     // Return reply 230 to let the user know everything is correct
     formatFTPReply(FTPREPLYID_230, reply);
+    UARTSendString("PASS CMD Executed\r\n", 19);
 }
 
 void executeCommand_ACCT

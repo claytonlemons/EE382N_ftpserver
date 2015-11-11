@@ -36,7 +36,7 @@
 // This is part of revision 10007 of the Stellaris Peripheral Driver Library.
 //
 //*****************************************************************************
-
+#include "inc/hw_types.h"
 #ifndef __SYSCTL_H__
 #define __SYSCTL_H__
 
