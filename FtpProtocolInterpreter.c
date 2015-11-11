@@ -12,6 +12,7 @@
 #include "ftp_replies.h"
 #include "ftp_control_block.h"
 #include "ftp_command_executor.h"
+#include "dynamic_string.h"
 #include "FtpProtocolInterpreter.h"
 #include "utils/lwiplib.h"
 #include "drivers/rit128x96x4.h"
@@ -127,13 +128,20 @@ static err_t ftp_RxCmd(void *arg, struct tcp_pcb *pcb, struct pbuf *p,
 
         // Convert the command string to an FTPCommandString
         FTPCommandID ReceivedCommand = ftpCommandStringToID(CommandStr);
-        char MessageToSend[kReplyBufferLength];
+
+        // Initialize reply buffer
+        char StringBuffer[kReplyBufferLength];
+        DynamicString reply;
+        initializeDynamicString(&reply, StringBuffer, sizeof(StringBuffer));
 
         // Execute the command
-        executeCommand(ReceivedCommand, Payload, MessageToSend,
-            kReplyBufferLength, PI_Struct);
+        executeCommand(ReceivedCommand, Payload, &reply, PI_Struct);
+
         // Send the response after executing the command
-        ftp_SendMsg(pcb, MessageToSend);
+        ftp_SendMsg(pcb, reply.buffer);
+
+        // Clean up reply buffer
+        finalizeDynamicString(&reply);
 
         RIT128x96x4Enable(1000000);
         RIT128x96x4StringDraw((const char *)CommandStr, 0, 60, 15);
@@ -193,6 +201,8 @@ static void ftp_PiError(void *arg, err_t err)
     RIT128x96x4Disable();
 }
 
+FtpPiStruct_t g_PI_State;
+
 // This method is used when the TCP module receives a new connection.
 // Here we initialize the PI state machine to handle the requests from
 // the user. Additionally we present all the required methods to the TCP
@@ -210,9 +220,9 @@ static err_t ftp_Accept(void *arg, struct tcp_pcb *pcb, err_t err)
     // Used to specify the argument that should be passed callback
     // functions. This is a TcpPi struct that contains the state of the
     // FTP protocol interpreter state machine.
-    FtpPiStruct_t *PI_State = NULL;
-    PI_State->PresState = WAIT_FOR_USERNAME;
-    tcp_arg(pcb, PI_State);
+
+    g_PI_State.PresState = WAIT_FOR_USERNAME;
+    tcp_arg(pcb, &g_PI_State);
 
     // Tell TCP that we wish to be informed of incoming data by a call
     // to the ftp_RxCmd() function.

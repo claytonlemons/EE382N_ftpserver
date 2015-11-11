@@ -2,7 +2,7 @@ FTP_REPLY_XMACRO(110, "MARK %s = %s") // Restart marker reply. Must follow forma
 FTP_REPLY_XMACRO(120, "Service ready in %d minutes.")
 FTP_REPLY_XMACRO(125, "Data connection already open; transfer starting.")
 FTP_REPLY_XMACRO(150, "File status okay; about to open data connection.")
-FTP_REPLY_XMACRO(200, "Command okay.")
+FTP_REPLY_XMACRO(200, "200 Command okay.\r\n")
 FTP_REPLY_XMACRO(202, "Command not implemented, superfluous at this site.")
 FTP_REPLY_XMACRO(211, "%s") // System status, or system help reply.
 FTP_REPLY_XMACRO(212, "%s") // Directory status.
@@ -27,8 +27,8 @@ FTP_REPLY_XMACRO(450, "Requested file action not taken. File unavailable") // fo
 FTP_REPLY_XMACRO(451, "Requested action aborted: local error in processing.")
 FTP_REPLY_XMACRO(452, "Requested action not taken. Insufficient storage space in system.")
 FTP_REPLY_XMACRO(500, "Syntax error, command unrecognized.") // This may include errors such as command line too long.
-FTP_REPLY_XMACRO(501, "Syntax error in parameters or arguments.")
-FTP_REPLY_XMACRO(502, "Command not implemented.")
+FTP_REPLY_XMACRO(501, "501 Syntax error in parameters or arguments.\r\n")
+FTP_REPLY_XMACRO(502, "502 Command not implemented.\r\n")
 FTP_REPLY_XMACRO(503, "Bad sequence of commands.")
 FTP_REPLY_XMACRO(504, "Command not implemented for that parameter.")
 FTP_REPLY_XMACRO(530, "Not logged in.")
