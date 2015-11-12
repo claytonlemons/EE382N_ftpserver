@@ -21,7 +21,6 @@
 #include "driverlib/ssi.h"
 #include "driverlib/sysctl.h"
 #include "fatfs/src/diskio.h"
-#include "mmc-ek-lm3s8962.h"
 
 /* Definitions for MMC/SDC command */
 #define CMD0    (0x40+0)    /* GO_IDLE_STATE */
@@ -51,6 +50,7 @@
 #define SDC_SSI_CLK             GPIO_PIN_2
 #define SDC_SSI_TX              GPIO_PIN_5
 #define SDC_SSI_RX              GPIO_PIN_4
+#define SDC_SSI_FSS             GPIO_PIN_3
 #define SDC_SSI_PINS            (SDC_SSI_TX | SDC_SSI_RX | SDC_SSI_CLK)
 
 // GPIO for card chip select
@@ -71,6 +71,7 @@ void DESELECT(void)
 {
     GPIOPinWrite(SDC_CS_GPIO_PORT_BASE, SDC_CS, SDC_CS);
 }
+
 
 /*--------------------------------------------------------------------------
 
@@ -172,7 +173,6 @@ void send_initial_clock_train(void)
         /* Write DUMMY data. SSIDataPut() waits until there is room in the */
         /* FIFO. */
         SSIDataPut(SDC_SSI_BASE, 0xFF);
-        while(SSIBusy(SSI0_BASE));
 
         /* Flush data read during data write. */
         SSIDataGet(SDC_SSI_BASE, &dat);
@@ -725,51 +725,4 @@ DWORD get_fattime (void)
             | (0U >> 1)                // Sec = 0
             ;
 
-}
-
-void
-MMCEnable()
-{
-//    //
-//    // Disable the SSI port.
-//    //
-//    SSIDisable(SSI0_BASE);
-//
-//    //
-//    // Configure the SSI0 port for master mode.
-//    //
-//    SSIConfigSetExpClk(SDC_SSI_BASE, SysCtlClockGet(), SSI_FRF_MOTO_MODE_0,
-//                           SSI_MODE_MASTER, ulFrequency, 8);
-//
-//    //
-//    // Enable the SSI port.
-//    //
-//    SSIEnable(SSI0_BASE);
-
-    set_max_speed();
-}
-
-void
-MMCDisable(void)
-{
-    unsigned long ulTemp;
-
-    //
-    // Wait until the SSI port is no longer busy.
-    //
-    while(SSIBusy(SSI0_BASE))
-    {
-    }
-
-    //
-    // Drain the receive fifo.
-    //
-    while(SSIDataGetNonBlocking(SSI0_BASE, &ulTemp) != 0)
-    {
-    }
-
-    //
-    // Disable the SSI port.
-    //
-    SSIDisable(SSI0_BASE);
 }

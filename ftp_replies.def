@@ -5,8 +5,8 @@ FTP_REPLY_XMACRO(150, "File status okay; about to open data connection.")
 FTP_REPLY_XMACRO(200, "200 Command okay.\r\n")
 FTP_REPLY_XMACRO(202, "Command not implemented, superfluous at this site.")
 FTP_REPLY_XMACRO(211, "%s") // System status, or system help reply.
-FTP_REPLY_XMACRO(212, "%s") // Directory status.
-FTP_REPLY_XMACRO(213, "%s") // File status.
+FTP_REPLY_XMACRO(212, "212-Status follows:\r\n%s\r\n212 End of status\r\n\r\n") // Directory status.
+FTP_REPLY_XMACRO(213, "213-Status follows:\r\n%s\r\n213 End of status\r\n\r\n") // File status.
 FTP_REPLY_XMACRO(214, "%s") // Help message. On how to use the server or the meaning of a particular non-standard command.  This reply is useful only to the human user.
 FTP_REPLY_XMACRO(215, "%s") // NAME system type. Where NAME is an official system name from the list in the Assigned Numbers document.
 FTP_REPLY_XMACRO(220, "Service ready for new user.")

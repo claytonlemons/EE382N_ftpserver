@@ -23,7 +23,7 @@
 #define kReplyBufferLength 128
 
 void ftp_Init(void);
-static void ftp_SendMsg(struct tcp_pcb *pcb, char *msg);
+static void ftp_SendMsg(struct tcp_pcb *pcb, const char *msg, size_t length);
 static err_t ftp_OpenDataConnection(struct tcp_pcb *pcb,
     FtpPiStruct_t *PI_Struct);
 static err_t ftp_CloseDataConnection (FtpPiStruct_t *PI_Struct);
