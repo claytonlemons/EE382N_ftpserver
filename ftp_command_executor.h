@@ -15,9 +15,9 @@
 void executeCommand
 (
     FTPCommandID commandID,
-	const char *arguments,
+    const char *arguments,
     DynamicString *reply,
-	FtpPiStruct_t *PI_Struct
+    FtpPiStruct_t *PI_Struct
 );
 
 void executeCommand_USER

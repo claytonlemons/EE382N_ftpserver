@@ -12,33 +12,34 @@
 #include "ftp_control_block.h"
 #include "ftp_replies.h"
 #include "ftp_parsing_utils.h"
+#include "FtpProtocolInterpreter.h"
 #include "UartDebug.h"
 #include "sdcard.h"
 
 void executeCommand
 (
-	FTPCommandID ftpCommandID,
-	const char *arguments,
+    FTPCommandID ftpCommandID,
+    const char *arguments,
     DynamicString *reply,
-	FtpPiStruct_t *PI_Struct
+    FtpPiStruct_t *PI_Struct
 )
 {
-	switch (ftpCommandID)
-	{
-		#define FTP_COMMAND_XMACRO(commandID) \
-		case FTPCOMMANDID_##commandID: executeCommand_##commandID(arguments, reply, PI_Struct); break;
-		#include "ftp_commands.def"
-		default:
-			break;
-			// Error: unknown command!
-	}
+    switch (ftpCommandID)
+    {
+        #define FTP_COMMAND_XMACRO(commandID) \
+        case FTPCOMMANDID_##commandID: executeCommand_##commandID(arguments, reply, PI_Struct); break;
+        #include "ftp_commands.def"
+        default:
+            break;
+            // Error: unknown command!
+    }
 }
 
 void executeCommand_USER
 (
-	const char *arguments,
+    const char *arguments,
     DynamicString *reply,
-	FtpPiStruct_t *PI_Struct
+    FtpPiStruct_t *PI_Struct
 )
 {
     burnWhitespace(arguments);
@@ -70,11 +71,11 @@ void executeCommand_PASS
     burnWhitespace(arguments);
 
     char passwordBuffer[64];
-	DynamicString password;
-	initializeDynamicString(&password, passwordBuffer, sizeof(passwordBuffer));
+    DynamicString password;
+    initializeDynamicString(&password, passwordBuffer, sizeof(passwordBuffer));
 
     // Get the password from the arguments
-	FTP_PARSE(String(arguments, &password));
+    FTP_PARSE(String(arguments, &password));
     //TODO: verify user's password against database. For now any password works
 
     finalizeDynamicString(&password);
@@ -82,7 +83,7 @@ void executeCommand_PASS
     PI_Struct->PresState = READY;
     // Return reply 230 to let the user know everything is correct
     formatFTPReply(FTPREPLYID_230, reply);
-    UARTPrintLn("USER CMD Executed");
+    UARTPrintLn("PASS CMD Executed");
 }
 
 void executeCommand_ACCT
@@ -92,7 +93,7 @@ void executeCommand_ACCT
     FtpPiStruct_t *PI_Struct
 )
 {
-	formatFTPReply(FTPREPLYID_502, reply);
+    formatFTPReply(FTPREPLYID_502, reply);
 }
 
 void executeCommand_CWD
@@ -102,7 +103,7 @@ void executeCommand_CWD
     FtpPiStruct_t *PI_Struct
 )
 {
-	formatFTPReply(FTPREPLYID_502, reply);
+    formatFTPReply(FTPREPLYID_502, reply);
 }
 
 void executeCommand_CDUP
@@ -112,7 +113,7 @@ void executeCommand_CDUP
     FtpPiStruct_t *PI_Struct
 )
 {
-	formatFTPReply(FTPREPLYID_502, reply);
+    formatFTPReply(FTPREPLYID_502, reply);
 }
 
 void executeCommand_SMNT
@@ -122,7 +123,7 @@ void executeCommand_SMNT
     FtpPiStruct_t *PI_Struct
 )
 {
-	formatFTPReply(FTPREPLYID_502, reply);
+    formatFTPReply(FTPREPLYID_502, reply);
 }
 
 void executeCommand_REIN
@@ -132,7 +133,7 @@ void executeCommand_REIN
     FtpPiStruct_t *PI_Struct
 )
 {
-	formatFTPReply(FTPREPLYID_502, reply);
+    formatFTPReply(FTPREPLYID_502, reply);
 }
 
 void executeCommand_QUIT
@@ -142,7 +143,7 @@ void executeCommand_QUIT
     FtpPiStruct_t *PI_Struct
 )
 {
-	formatFTPReply(FTPREPLYID_502, reply);
+    formatFTPReply(FTPREPLYID_502, reply);
 }
 
 void executeCommand_PORT
@@ -153,6 +154,9 @@ void executeCommand_PORT
 )
 {
     burnWhitespace(arguments);
+    UARTPrintLn("PORT CMD Executed");
+    const char *debugBuff = arguments;
+    UARTPrintLn(debugBuff);
 
     FTP_PARSE(HostPort(arguments, &(PI_Struct->hostPort)));
 
@@ -166,7 +170,7 @@ void executeCommand_PASV
     FtpPiStruct_t *PI_Struct
 )
 {
-	formatFTPReply(FTPREPLYID_502, reply);
+    formatFTPReply(FTPREPLYID_502, reply);
 }
 
 void executeCommand_TYPE
@@ -176,7 +180,9 @@ void executeCommand_TYPE
     FtpPiStruct_t *PI_Struct
 )
 {
-	formatFTPReply(FTPREPLYID_502, reply);
+    FTP_PARSE(TypeCode(arguments, &(PI_Struct->typeCode)));
+    UARTPrint("executeCommand_TYPE Called!\r\n");
+    formatFTPReply(FTPREPLYID_200, reply);
 }
 
 void executeCommand_STRU
@@ -186,7 +192,7 @@ void executeCommand_STRU
     FtpPiStruct_t *PI_Struct
 )
 {
-	formatFTPReply(FTPREPLYID_502, reply);
+    formatFTPReply(FTPREPLYID_502, reply);
 }
 
 void executeCommand_MODE
@@ -196,7 +202,7 @@ void executeCommand_MODE
     FtpPiStruct_t *PI_Struct
 )
 {
-	formatFTPReply(FTPREPLYID_502, reply);
+    formatFTPReply(FTPREPLYID_502, reply);
 }
 
 void executeCommand_RETR
@@ -206,7 +212,7 @@ void executeCommand_RETR
     FtpPiStruct_t *PI_Struct
 )
 {
-	formatFTPReply(FTPREPLYID_502, reply);
+    formatFTPReply(FTPREPLYID_502, reply);
 }
 
 void executeCommand_STOR
@@ -216,7 +222,19 @@ void executeCommand_STOR
     FtpPiStruct_t *PI_Struct
 )
 {
-	formatFTPReply(FTPREPLYID_502, reply);
+    // TODO: check if the file is writable/available or
+    //if (problemWithFile) {
+        //formatFTPReply(FTPREPLYID_550, reply);
+        //return;
+    //}
+
+
+    // Send msg 150 to let the client the file is valid
+    formatFTPReply(FTPREPLYID_150, reply, arguments);
+    if (ftp_OpenDataConnection(PI_Struct) != 0) {
+        // An error occured.
+        return;
+    }
 }
 
 void executeCommand_STOU
@@ -226,7 +244,7 @@ void executeCommand_STOU
     FtpPiStruct_t *PI_Struct
 )
 {
-	formatFTPReply(FTPREPLYID_502, reply);
+    formatFTPReply(FTPREPLYID_502, reply);
 }
 
 void executeCommand_APPE
@@ -236,7 +254,7 @@ void executeCommand_APPE
     FtpPiStruct_t *PI_Struct
 )
 {
-	formatFTPReply(FTPREPLYID_502, reply);
+    formatFTPReply(FTPREPLYID_502, reply);
 }
 
 void executeCommand_ALLO
@@ -246,7 +264,7 @@ void executeCommand_ALLO
     FtpPiStruct_t *PI_Struct
 )
 {
-	formatFTPReply(FTPREPLYID_502, reply);
+    formatFTPReply(FTPREPLYID_502, reply);
 }
 
 void executeCommand_REST
@@ -256,7 +274,7 @@ void executeCommand_REST
     FtpPiStruct_t *PI_Struct
 )
 {
-	formatFTPReply(FTPREPLYID_502, reply);
+    formatFTPReply(FTPREPLYID_502, reply);
 }
 
 void executeCommand_RNFR
@@ -266,7 +284,7 @@ void executeCommand_RNFR
     FtpPiStruct_t *PI_Struct
 )
 {
-	formatFTPReply(FTPREPLYID_502, reply);
+    formatFTPReply(FTPREPLYID_502, reply);
 }
 
 void executeCommand_RNTO
@@ -276,7 +294,7 @@ void executeCommand_RNTO
     FtpPiStruct_t *PI_Struct
 )
 {
-	formatFTPReply(FTPREPLYID_502, reply);
+    formatFTPReply(FTPREPLYID_502, reply);
 }
 
 void executeCommand_ABOR
@@ -286,7 +304,7 @@ void executeCommand_ABOR
     FtpPiStruct_t *PI_Struct
 )
 {
-	formatFTPReply(FTPREPLYID_502, reply);
+    formatFTPReply(FTPREPLYID_502, reply);
 }
 
 void executeCommand_DELE
@@ -296,7 +314,7 @@ void executeCommand_DELE
     FtpPiStruct_t *PI_Struct
 )
 {
-	formatFTPReply(FTPREPLYID_502, reply);
+    formatFTPReply(FTPREPLYID_502, reply);
 }
 
 void executeCommand_RMD
@@ -306,7 +324,7 @@ void executeCommand_RMD
     FtpPiStruct_t *PI_Struct
 )
 {
-	formatFTPReply(FTPREPLYID_502, reply);
+    formatFTPReply(FTPREPLYID_502, reply);
 }
 
 void executeCommand_MKD
@@ -316,7 +334,7 @@ void executeCommand_MKD
     FtpPiStruct_t *PI_Struct
 )
 {
-	formatFTPReply(FTPREPLYID_502, reply);
+    formatFTPReply(FTPREPLYID_502, reply);
 }
 
 void executeCommand_PWD
@@ -326,7 +344,7 @@ void executeCommand_PWD
     FtpPiStruct_t *PI_Struct
 )
 {
-	formatFTPReply(FTPREPLYID_502, reply);
+    formatFTPReply(FTPREPLYID_502, reply);
 }
 
 void executeCommand_LIST
@@ -336,7 +354,7 @@ void executeCommand_LIST
     FtpPiStruct_t *PI_Struct
 )
 {
-	formatFTPReply(FTPREPLYID_502, reply);
+    formatFTPReply(FTPREPLYID_502, reply);
 }
 
 void executeCommand_NLST
@@ -346,7 +364,7 @@ void executeCommand_NLST
     FtpPiStruct_t *PI_Struct
 )
 {
-	formatFTPReply(FTPREPLYID_502, reply);
+    formatFTPReply(FTPREPLYID_502, reply);
 }
 
 void executeCommand_SITE
@@ -356,7 +374,7 @@ void executeCommand_SITE
     FtpPiStruct_t *PI_Struct
 )
 {
-	formatFTPReply(FTPREPLYID_502, reply);
+    formatFTPReply(FTPREPLYID_502, reply);
 }
 
 void executeCommand_SYST
@@ -366,7 +384,7 @@ void executeCommand_SYST
     FtpPiStruct_t *PI_Struct
 )
 {
-	formatFTPReply(FTPREPLYID_502, reply);
+    formatFTPReply(FTPREPLYID_502, reply);
 }
 
 void executeCommand_STAT
@@ -402,7 +420,7 @@ void executeCommand_HELP
     FtpPiStruct_t *PI_Struct
 )
 {
-	formatFTPReply(FTPREPLYID_502, reply);
+    formatFTPReply(FTPREPLYID_502, reply);
 }
 
 void executeCommand_NOOP
@@ -412,5 +430,5 @@ void executeCommand_NOOP
     FtpPiStruct_t *PI_Struct
 )
 {
-	formatFTPReply(FTPREPLYID_200, reply);
+    formatFTPReply(FTPREPLYID_200, reply);
 }

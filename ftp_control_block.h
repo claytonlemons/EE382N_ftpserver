@@ -62,7 +62,8 @@ typedef enum {
 // This enum defines the possible states of the DataConnection
 typedef enum {
     IDLE,
-    TX,
+    TX_FILE,
+	TX_DIR,
     RX,
     ABORTED
 } DTP_State_t;
@@ -87,6 +88,7 @@ typedef struct FTP_DTP_CB{
 // protocol interpreter.
 typedef struct FtpPiStruct_t{
 	FtpPiState_t PresState;
+	struct tcp_pcb *MessageConnection;
     struct tcp_pcb *DataConnection;
     FTP_DTP_CB DataStructure;
     HostPort hostPort;

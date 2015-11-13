@@ -13,12 +13,12 @@
 #include "ftp_control_block.h"
 #include "ftp_command_executor.h"
 #include "dynamic_string.h"
-#include "FtpProtocolInterpreter.h"
+#include "UartDebug.h"
 #include "utils/lwiplib.h"
 #include "drivers/rit128x96x4.h"
 #include "UartDebug.h"
 
-
+#define kReplyBufferLength 128
 
 // This method is used to transmit messages to the FTP client.
 // The messages are sent through the TCP pcb module using the
@@ -40,34 +40,133 @@ static void ftp_SendMsg(struct tcp_pcb *pcb, const char *msg, size_t length)
     }
 }
 
+// This method is used to close a data connection
+err_t ftp_CloseDataConnection (FtpPiStruct_t *PI_Struct){
+    UARTPrintLn("ftp_CloseDataConnection called!");
+    tcp_arg(PI_Struct->DataConnection, NULL);
+    tcp_sent(PI_Struct->DataConnection, NULL);
+    tcp_recv(PI_Struct->DataConnection, NULL);
+    return tcp_close(PI_Struct->DataConnection);
+}
+
+// This method is used to take action when the TCP Data connection receives
+// data for us.
+static err_t ftp_RxData(void *arg, struct tcp_pcb *pcb, struct pbuf *p,
+    err_t err)
+{
+	UARTPrint("ftp_RxData Called!\r\n");
+
+    FtpPiStruct_t *PI_Struct = arg;
+
+
+
+    // We process the RX data only if no errors occurred and the input buffer
+    // is not empty.
+    if (err == ERR_OK && p != NULL) {
+        // Grab the data from the input buffer.
+        char *RxData;
+        RxData = p->payload;
+
+        // TODO: here is where we should handle writing to the the File system
+        UARTPrint(RxData);
+
+        // We need to tell the TCP module that the data has been accepted.
+        tcp_recved(pcb, p->tot_len);
+
+        // Deallocate the input buffer.
+        pbuf_free(p);
+    }
+
+    // When the input data buffer is empty we have received all the data from
+    // the client. We proceed to close the connection
+    if (err == ERR_OK && p == NULL) {
+        PI_Struct->PresState = READY;
+        ftp_CloseDataConnection(PI_Struct);
+        PI_Struct->DataStructure.DtpState = IDLE;
+        // Send msg226 when the operation completes.
+        char StringBuffer[kReplyBufferLength];
+        DynamicString reply;
+        initializeDynamicString(&reply, StringBuffer, sizeof(StringBuffer));
+        formatFTPReply(FTPREPLYID_226, &reply);
+        ftp_SendMsg((PI_Struct->MessageConnection), reply.buffer,
+            strlen(reply.buffer));
+        finalizeDynamicString(&reply);
+    }
+
+    return ERR_OK;
+}
+
+// This method gets called when the data connection is done sending a frame
+static err_t ftp_DataSent(void *arg, struct tcp_pcb *pcb, u16_t len){
+    FtpPiStruct_t *PI_Struct = arg;
+    UARTPrint("ftp_DataSent Called!\r\n");
+    switch (PI_Struct->DataStructure.DtpState) {
+        case TX_DIR:
+            //TODO: need tcp_SendData and tcp_SendDir
+            break;
+        case TX_FILE:
+            //TODO: need tcp_SendData and tcp_SendFile
+            // tcp_SendData should be used to send small chunk of data.
+            // tcp_SendDir should call tcp_SendData. It handles the partiion
+            // of the file at a higher level
+            break;
+        default:
+            break;
+    }
+    return ERR_OK;
+}
+
+// This method is called when a TCP data connection is opened.
+static err_t ftp_DataConnected(void *arg, struct tcp_pcb *pcb, err_t err){
+    FtpPiStruct_t *PI_Struct = arg;
+    PI_Struct->PresState = DATA_CONN_OPEN;
+    PI_Struct->DataConnection = pcb;
+    UARTPrintLn("ftp_DataConnected Called!");
+
+    // TCP will call ftp_RxData when it receives data through this connection
+    tcp_recv(pcb, ftp_RxData);
+
+    // TCP will call ftp_DataSent it completes a frame transfer
+    tcp_sent(pcb, ftp_DataSent);
+
+    switch (PI_Struct->DataStructure.DtpState) {
+        case TX_DIR:
+            //TODO: need tcp_SendData and tcp_SendDir
+            break;
+        case TX_FILE:
+            //TODO: need tcp_SendData and tcp_SendFile
+            break;
+        default:
+            break;
+    }
+    return ERR_OK;
+}
+
 // This method is used to open a TCP data connection.
-// TODO: Need to define ftp_DataConnected. The function that will
-// be called when the data connection is opened.
-static err_t ftp_OpenDataConnection(struct tcp_pcb *pcb,
-    FtpPiStruct_t *PI_Struct){
+err_t ftp_OpenDataConnection(FtpPiStruct_t *PI_Struct){
 
     err_t errStatus;
     // Open a data connection on the received FtpPiStruct_t structure
     PI_Struct->DataConnection = tcp_new();
     // Bind the data connection to port 20 of the server's IP
-    errStatus = tcp_bind(PI_Struct->DataConnection, &pcb->local_ip, 20);
-    //TODO: Need:
-    // 1. A way to convert our hostNumber to a struct ip_addr.
-    // 2. A way to convert our portNumber type to a u16_t.
-    // 3. A function to process data requests.
-    /*errStatus = tcp_connect(
-   	    PI_Struct->DataConnection,
-        &PI_Struct->hostPort->hostNumber,
-		(u16_t)PI_Struct->hostPort->portNumber,
-	    ftp_DataConnected);*/
+    errStatus = tcp_bind(PI_Struct->DataConnection,
+        &PI_Struct->MessageConnection->local_ip, 20);
+    // Pass the PI_Struct to TCP
+    tcp_arg(PI_Struct->DataConnection, PI_Struct);
+    // When the client has not programmed any Address/Port we will use
+    // the address of the client and the default port 20
+    if (PI_Struct->hostPort.portNumber == 0){
+        PI_Struct->hostPort.hostNumber = PI_Struct->MessageConnection->remote_ip;
+        PI_Struct->hostPort.portNumber = 20;
+    }
+    // Call ftp_DataConnected when the connection is established
+    errStatus = tcp_connect(PI_Struct->DataConnection,
+        &PI_Struct->hostPort.hostNumber,
+        PI_Struct->hostPort.portNumber,
+        ftp_DataConnected);
     if (errStatus == ERR_OK)
         PI_Struct->PresState = DATA_CONN_OPEN;
     return errStatus;
-}
-
-// This method is used to close a data connection
-static err_t ftp_CloseDataConnection (FtpPiStruct_t *PI_Struct){
-    return tcp_close(PI_Struct->DataConnection);
 }
 
 
@@ -88,8 +187,8 @@ static err_t ftp_RxCmd(void *arg, struct tcp_pcb *pcb, struct pbuf *p,
 
     // We process the RX data only if no errors occurred and the input buffer
     // is not empty.
-	if (err == ERR_OK && p != NULL) {
-		// Grab the data from the input buffer.
+    if (err == ERR_OK && p != NULL) {
+        // Grab the data from the input buffer.
         RxData = p->payload;
 
         // The first entry is the first character of the command. Set the
@@ -132,20 +231,18 @@ static err_t ftp_RxCmd(void *arg, struct tcp_pcb *pcb, struct pbuf *p,
         // Clean up reply buffer
         finalizeDynamicString(&reply);
 
-
-
         // Deallocate the input buffer.
-		pbuf_free(p);
-	}
+        pbuf_free(p);
+    }
 
-	return ERR_OK;
+    return ERR_OK;
 }
 
 // This is the method that gets called when the TCP module successfully
 // completes a transmission.
 static err_t ftp_CmdSent(void *arg, struct tcp_pcb *pcb, u16_t len)
 {
-	//  FtpPiStruct_t *PI_Struct = arg;
+    //  FtpPiStruct_t *PI_Struct = arg;
 
     // Check the present state of the TCP state machine. If it is greater than
     // "ESTABLISHED", we simply return. The only states that are < ESTABLISHED
@@ -159,7 +256,7 @@ static err_t ftp_CmdSent(void *arg, struct tcp_pcb *pcb, u16_t len)
 		return ERR_OK;
     }
 
-	return ERR_OK;
+    return ERR_OK;
 }
 
 // TODO: Need to implement ftp_Poll. We should check the state of the
@@ -169,7 +266,7 @@ static err_t ftp_Poll(void *arg, struct tcp_pcb *pcb)
 {
 	//UARTPrintLn("ftp_Poll Called!");
 
-	return ERR_OK;
+    return ERR_OK;
 }
 
 // This method gets called by the TCP module when an error occurs.
@@ -180,7 +277,7 @@ static void ftp_PiError(void *arg, err_t err)
 	UARTPrintLn("ftp_PiError Called!");
 }
 
-FtpPiStruct_t g_PI_State;
+
 
 // This method is used when the TCP module receives a new connection.
 // Here we initialize the PI state machine to handle the requests from
@@ -198,9 +295,12 @@ static err_t ftp_Accept(void *arg, struct tcp_pcb *pcb, err_t err)
     // Used to specify the argument that should be passed callback
     // functions. This is a TcpPi struct that contains the state of the
     // FTP protocol interpreter state machine.
-
-    g_PI_State.PresState = WAIT_FOR_USERNAME;
-    tcp_arg(pcb, &g_PI_State);
+    FtpPiStruct_t *PI_Structure;
+    PI_Structure = malloc(sizeof(FtpPiStruct_t));
+    PI_Structure->PresState = WAIT_FOR_USERNAME;
+    PI_Structure->MessageConnection = pcb;
+    PI_Structure->hostPort.portNumber = 0;
+    tcp_arg(pcb, PI_Structure);
 
     // Tell TCP that we wish to be informed of incoming data by a call
     // to the ftp_RxCmd() function.
@@ -224,8 +324,12 @@ static err_t ftp_Accept(void *arg, struct tcp_pcb *pcb, err_t err)
     tcp_poll(pcb, ftp_Poll, 1);
 
     // Send msg220 to let the user know the server received the request.
-    // TODO: replace this response with ftpReplyFormatStrings
-    ftp_SendMsg(pcb, msg220, strlen(msg220));
+    char StringBuffer[kReplyBufferLength];
+    DynamicString reply;
+    initializeDynamicString(&reply, StringBuffer, sizeof(StringBuffer));
+	formatFTPReply(FTPREPLYID_220, &reply);
+	ftp_SendMsg(pcb, reply.buffer, strlen(reply.buffer));
+    finalizeDynamicString(&reply);
     return ERR_OK;
 }
 
