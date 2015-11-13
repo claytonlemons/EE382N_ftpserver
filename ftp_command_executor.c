@@ -14,6 +14,7 @@
 #include "ftp_parsing_utils.h"
 #include "FtpProtocolInterpreter.h"
 #include "UartDebug.h"
+#include "sdcard.h"
 
 void executeCommand
 (
@@ -56,7 +57,7 @@ void executeCommand_USER
     PI_Struct->PresState = WAIT_FOR_PASSWORD;
     // Return reply 331 to let the user know everything is correct
     formatFTPReply(FTPREPLYID_331, reply);
-    UARTSendString("USER CMD Executed\r\n", 19);
+    UARTPrintLn("USER CMD Executed");
 
 }
 
@@ -82,7 +83,7 @@ void executeCommand_PASS
     PI_Struct->PresState = READY;
     // Return reply 230 to let the user know everything is correct
     formatFTPReply(FTPREPLYID_230, reply);
-    UARTSendString("PASS CMD Executed\r\n", 19);
+    UARTPrintLn("USER CMD Executed");
 }
 
 void executeCommand_ACCT
@@ -390,7 +391,23 @@ void executeCommand_STAT
     FtpPiStruct_t *PI_Struct
 )
 {
-    formatFTPReply(FTPREPLYID_502, reply);
+    UARTPrintLn("Reading root dir...");
+    DynamicString directoryContents;
+    initializeDynamicString(&directoryContents, NULL, 0);
+
+    size_t bytesWritten = 0;
+    getDirectoryContents("/", &directoryContents, &bytesWritten);
+
+    resizeDynamicString(&directoryContents, bytesWritten);
+    getDirectoryContents("/", &directoryContents, &bytesWritten);
+
+    UARTPrintLn(directoryContents.buffer);
+
+    formatFTPReply(FTPREPLYID_213, reply, directoryContents.buffer);
+
+    finalizeDynamicString(&directoryContents);
+
+    UARTPrintLn(reply->buffer);
 }
 
 void executeCommand_HELP

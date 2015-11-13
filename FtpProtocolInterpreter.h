@@ -12,7 +12,7 @@
 
 
 void ftp_Init(void);
-static void ftp_SendMsg(struct tcp_pcb *pcb, char *msg);
+static void ftp_SendMsg(struct tcp_pcb *pcb, const char *msg, size_t length);
 err_t ftp_OpenDataConnection(FtpPiStruct_t *PI_Struct);
 err_t ftp_CloseDataConnection(FtpPiStruct_t *PI_Struct);
 

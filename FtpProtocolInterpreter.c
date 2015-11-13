@@ -16,33 +16,26 @@
 #include "UartDebug.h"
 #include "utils/lwiplib.h"
 #include "drivers/rit128x96x4.h"
+#include "UartDebug.h"
 
 #define kReplyBufferLength 128
 
 // This method is used to transmit messages to the FTP client.
 // The messages are sent through the TCP pcb module using the
 // tcp_write.
-static void ftp_SendMsg(struct tcp_pcb *pcb, char *msg)
+static void ftp_SendMsg(struct tcp_pcb *pcb, const char *msg, size_t length)
 {
-    char Buffer[kReplyBufferLength];
-    sprintf(Buffer, (const char *)msg);
-    int MsgLength;
-    MsgLength = strlen(Buffer);
     err_t err;
 
     // Check how much space is available on the TCP TX buffer
-    if (tcp_sndbuf(pcb) < MsgLength) {
-        RIT128x96x4Enable(1000000);
-        RIT128x96x4StringDraw("ftp_SendMsg PCB<Msg!", 0, 80, 15);
-        RIT128x96x4Disable();
+    if (tcp_sndbuf(pcb) < length) {
+    	UARTPrintLn("ftp_SendMsg PCB < Msg!");
         return;
     }
     // Send the message to the TCP module
-    err = tcp_write(pcb, (const void *)Buffer, MsgLength, TCP_WRITE_FLAG_COPY);
+	err = tcp_write(pcb, msg, length, TCP_WRITE_FLAG_COPY);
     if (err != ERR_OK) {
-        RIT128x96x4Enable(1000000);
-        RIT128x96x4StringDraw("ftp_SendMsg writeError!", 0, 80, 15);
-        RIT128x96x4Disable();
+    	UARTPrintLn("ftp_SendMsg writeError!");
         return;
     }
 }
@@ -88,11 +81,11 @@ static err_t ftp_RxData(void *arg, struct tcp_pcb *pcb, struct pbuf *p,
         PI_Struct->PresState = READY;
         ftp_CloseDataConnection(PI_Struct);
         PI_Struct->DataStructure.DtpState = IDLE;
-        char StringBuffer[kReplyBufferLength];
+        char *tempBuffer = (char *) malloc(strlen((char*)FTPREPLYID_226));
         DynamicString reply;
-        initializeDynamicString(&reply, StringBuffer, sizeof(StringBuffer));
+        initializeDynamicString(&reply, tempBuffer, strlen((char*)FTPREPLYID_226));
         formatFTPReply(FTPREPLYID_226, &reply);
-        ftp_SendMsg(PI_Struct->MessageConnection, reply.buffer);
+        ftp_SendMsg(PI_Struct->MessageConnection, reply.buffer, strlen(reply.buffer));
         finalizeDynamicString(&reply);
     }
 
@@ -178,9 +171,7 @@ err_t ftp_OpenDataConnection(FtpPiStruct_t *PI_Struct){
 static err_t ftp_RxCmd(void *arg, struct tcp_pcb *pcb, struct pbuf *p,
     err_t err)
 {
-    RIT128x96x4Enable(1000000);
-    RIT128x96x4StringDraw("ftp_RxCmd Called!", 0, 80, 15);
-    RIT128x96x4Disable();
+	UARTPrintLn("ftp_RxCmd Called!");
 
     FtpPiStruct_t *PI_Struct = arg;
 
@@ -196,10 +187,6 @@ static err_t ftp_RxCmd(void *arg, struct tcp_pcb *pcb, struct pbuf *p,
     if (err == ERR_OK && p != NULL) {
         // Grab the data from the input buffer.
         RxData = p->payload;
-
-        RIT128x96x4Enable(1000000);
-        RIT128x96x4StringDraw((const char *)RxData, 0, 80, 15);
-        RIT128x96x4Disable();
 
         // The first entry is the first character of the command. Set the
         // CommandStr pointer to that location.
@@ -230,19 +217,16 @@ static err_t ftp_RxCmd(void *arg, struct tcp_pcb *pcb, struct pbuf *p,
         DynamicString reply;
         initializeDynamicString(&reply, StringBuffer, sizeof(StringBuffer));
 
+        UARTPrintLn(CommandStr);
+
         // Execute the command
         executeCommand(ReceivedCommand, Payload, &reply, PI_Struct);
 
         // Send the response after executing the command
-        ftp_SendMsg(pcb, reply.buffer);
+        ftp_SendMsg(pcb, reply.buffer, strlen(reply.buffer)); // @TODO: fix the reply buffer length problem
 
         // Clean up reply buffer
         finalizeDynamicString(&reply);
-
-        // RIT128x96x4Enable(1000000);
-        // RIT128x96x4StringDraw((const char *)CommandStr, 0, 60, 15);
-        // RIT128x96x4StringDraw((const char *)Payload, 0, 80, 15);
-        // RIT128x96x4Disable();
 
         // Deallocate the input buffer.
         pbuf_free(p);
@@ -264,11 +248,9 @@ static err_t ftp_CmdSent(void *arg, struct tcp_pcb *pcb, u16_t len)
     // LISTEN      = 1,
     // SYN_SENT    = 2,
     // SYN_RCVD    = 3,
-    if (pcb->state > ESTABLISHED){
-        RIT128x96x4Enable(1000000);
-        RIT128x96x4StringDraw("ftp_CmdSent Called!", 0, 80, 15);
-        RIT128x96x4Disable();
-        return ERR_OK;
+	if (pcb->state > ESTABLISHED){
+		UARTPrintLn("ftp_CmdSent Called!");
+		return ERR_OK;
     }
 
     return ERR_OK;
@@ -279,10 +261,7 @@ static err_t ftp_CmdSent(void *arg, struct tcp_pcb *pcb, u16_t len)
 // send file, etc. We may or may not need this...
 static err_t ftp_Poll(void *arg, struct tcp_pcb *pcb)
 {
-
-    // RIT128x96x4Enable(1000000);
-    // RIT128x96x4StringDraw("ftp_Poll Called!", 0, 80, 15);
-    // RIT128x96x4Disable();
+	//UARTPrintLn("ftp_Poll Called!");
 
     return ERR_OK;
 }
@@ -291,10 +270,8 @@ static err_t ftp_Poll(void *arg, struct tcp_pcb *pcb)
 // TODO:We need an ftp__err function to handle errors.
 static void ftp_PiError(void *arg, err_t err)
 {
-    //  FtpPiStruct_t *PI_Struct = arg;
-    RIT128x96x4Enable(1000000);
-    RIT128x96x4StringDraw("ftp_PiError Called!", 0, 80, 15);
-    RIT128x96x4Disable();
+	//  FtpPiStruct_t *PI_Struct = arg;
+	UARTPrintLn("ftp_PiError Called!");
 }
 
 
@@ -307,9 +284,8 @@ static err_t ftp_Accept(void *arg, struct tcp_pcb *pcb, err_t err)
 {
     LWIP_UNUSED_ARG(arg);
     LWIP_UNUSED_ARG(err);
-    RIT128x96x4Enable(1000000);
-    RIT128x96x4StringDraw("FTP_Accept Called!", 0, 80, 15);
-    RIT128x96x4Disable();
+
+    UARTPrintLn("FTP_Accept Called!");
 
     // Tell TCP that this is the structure we wish to be passed for our
     // callbacks.
@@ -344,11 +320,10 @@ static err_t ftp_Accept(void *arg, struct tcp_pcb *pcb, err_t err)
     tcp_poll(pcb, ftp_Poll, 1);
 
     // Send msg220 to let the user know the server received the request.
-    char StringBuffer[kReplyBufferLength];
     DynamicString reply;
-    initializeDynamicString(&reply, StringBuffer, sizeof(StringBuffer));
+    initializeDynamicString(&reply, StringBuffer, strlen(FTPREPLYID_220));
 	formatFTPReply(FTPREPLYID_220, &reply);
-	ftp_SendMsg(pcb, reply.buffer);
+	ftp_SendMsg(pcb, reply.buffer, strlen(reply.buffer));
     finalizeDynamicString(&reply);
     return ERR_OK;
 }

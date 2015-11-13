@@ -8,6 +8,10 @@
 #ifndef UARTDEBUG_H_
 #define UARTDEBUG_H_
 
-void UARTSendString(const unsigned char *Buff, unsigned long CharsToSend);
+void UARTPrintUsingLength(const char *string, size_t length);
+
+void UARTPrint(const char *string);
+
+void UARTPrintLn(const char *string);
 
 #endif /* UARTDEBUG_H_ */

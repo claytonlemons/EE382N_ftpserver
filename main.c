@@ -15,9 +15,12 @@
 #include "driverlib/sysctl.h"
 #include "driverlib/systick.h"
 #include "driverlib/ethernet.h"
-#include "drivers/rit128x96x4.h"
+#include "driverlib/timer.h"
 #include "driverlib/interrupt.h"
 #include "FtpProtocolInterpreter.h"
+#include "sdcard.h"
+#include "UartDebug.h"
+#include "fatfs/src/ff.h"
 
 #include "lwip/tcp.h"
 
@@ -50,8 +53,7 @@ static volatile unsigned long g_ulFlags;
 //
 //*****************************************************************************
 void
-DisplayIPAddress(unsigned long ipaddr, unsigned long ulCol,
-                 unsigned long ulRow)
+DisplayIPAddress(unsigned long ipaddr)
 {
     char pucBuf[16];
     unsigned char *pucTemp = (unsigned char *)&ipaddr;
@@ -65,7 +67,7 @@ DisplayIPAddress(unsigned long ipaddr, unsigned long ulCol,
     //
     // Display the string.
     //
-    RIT128x96x4StringDraw(pucBuf, ulCol, ulRow, 15);
+    UARTPrint(pucBuf);
 }
 
 //*****************************************************************************
@@ -85,6 +87,8 @@ SysTickIntHandler(void)
     // Call the lwIP timer handler.
     //
     lwIPTimer(SYSTICKMS);
+
+    FatFSTickHandler();
 }
 
 //*****************************************************************************
@@ -105,30 +109,7 @@ lwIPHostTimerHandler(void)
     //
     if(ulIPAddress == 0)
     {
-        static int iColumn = 6;
-
-        //
-        // Update status bar on the display.
-        //
-        RIT128x96x4Enable(1000000);
-        if(iColumn < 12)
-        {
-            RIT128x96x4StringDraw(" >", 114, 24, 15);
-            RIT128x96x4StringDraw("< ", 0, 24, 15);
-            RIT128x96x4StringDraw("*",iColumn, 24, 7);
-        }
-        else
-        {
-            RIT128x96x4StringDraw(" *",iColumn - 6, 24, 7);
-        }
-
-        iColumn += 4;
-        if(iColumn > 114)
-        {
-            iColumn = 6;
-            RIT128x96x4StringDraw(" >", 114, 24, 15);
-        }
-        RIT128x96x4Disable();
+    	UARTPrint(".");
     }
 
     //
@@ -136,22 +117,27 @@ lwIPHostTimerHandler(void)
     //
     else if(ulLastIPAddress != ulIPAddress)
     {
+    	UARTPrintLn("initialized!");
         ulLastIPAddress = ulIPAddress;
-        RIT128x96x4Enable(1000000);
-        RIT128x96x4StringDraw("                       ", 0, 16, 15);
-        RIT128x96x4StringDraw("                       ", 0, 24, 15);
-        RIT128x96x4StringDraw("IP:   ", 0, 16, 15);
-        RIT128x96x4StringDraw("MASK: ", 0, 24, 15);
-        RIT128x96x4StringDraw("GW:   ", 0, 32, 15);
-        DisplayIPAddress(ulIPAddress, 36, 16);
+
+        UARTPrint("IP: ");
+        DisplayIPAddress(ulIPAddress);
+        UARTPrintLn("");
+
         ulIPAddress = lwIPLocalNetMaskGet();
-        DisplayIPAddress(ulIPAddress, 36, 24);
+        UARTPrint("MASK: ");
+		DisplayIPAddress(ulIPAddress);
+		UARTPrintLn("");
+
         ulIPAddress = lwIPLocalGWAddrGet();
-        DisplayIPAddress(ulIPAddress, 36, 32);
-        RIT128x96x4Disable();
+        UARTPrint("GW: ");
+		DisplayIPAddress(ulIPAddress);
+		UARTPrintLn("");
+
     }
 }
 
+static FATFS fatFS;
 
 int main(void) {
     unsigned long ulUser0, ulUser1;
@@ -159,20 +145,16 @@ int main(void) {
     //
     // Set the clocking to run directly from the crystal.
     //
-    SysCtlClockSet(SYSCTL_SYSDIV_4 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN |
+    SysCtlClockSet(SYSCTL_SYSDIV_1 | SYSCTL_USE_OSC | SYSCTL_OSC_MAIN |
                    SYSCTL_XTAL_8MHZ);
 
-    //
-    // Initialize the OLED display.
-    //
-    RIT128x96x4Init(1000000);
-    RIT128x96x4StringDraw("FTP Server", 0, 0, 15);
 
     //
     // Enable and Reset the Ethernet Controller.
     //
     SysCtlPeripheralEnable(SYSCTL_PERIPH_ETH);
     SysCtlPeripheralReset(SYSCTL_PERIPH_ETH);
+
 
     //
     // Configure SysTick for a periodic interrupt.
@@ -201,8 +183,7 @@ int main(void) {
         // We should never get here.  This is an error if the MAC address
         // has not been programmed into the device.  Exit the program.
         //
-        RIT128x96x4StringDraw("MAC Address", 0, 16, 15);
-        RIT128x96x4StringDraw("Not Programmed!", 0, 24, 15);
+    	UARTPrintLn("Fatal Error: MAC address is not programmed!!!");
         while(1);
     }
 
@@ -244,6 +225,27 @@ int main(void) {
     // Configure the UART for 115,200, 8-N-1 operation.
     UARTConfigSetExpClk(UART0_BASE, SysCtlClockGet(), 115200,
         (UART_CONFIG_WLEN_8 | UART_CONFIG_STOP_ONE | UART_CONFIG_PAR_NONE));
+
+    UARTPrint("Mounting SD card...");
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_SSI0);
+    RIT128x96x4Init(1000000);
+
+    FRESULT fresult = mountSDCard();
+
+    if (fresult == FR_OK)
+    {
+    	UARTPrintLn("success!");
+    }
+    else
+    {
+    	UARTPrintLn("failed!");
+    	UARTPrint("Mounting error: ");
+    	UARTPrintLn(fresultToString(fresult));
+
+    	return 1;
+    }
+
+    UARTPrint("Initializing FTP server.");
 
     //
     // Loop forever.  All the work is done in interrupt handlers.
