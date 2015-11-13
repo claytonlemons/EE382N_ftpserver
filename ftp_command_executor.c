@@ -83,7 +83,7 @@ void executeCommand_PASS
     PI_Struct->PresState = READY;
     // Return reply 230 to let the user know everything is correct
     formatFTPReply(FTPREPLYID_230, reply);
-    UARTPrintLn("USER CMD Executed");
+    UARTPrintLn("PASS CMD Executed");
 }
 
 void executeCommand_ACCT
@@ -154,6 +154,9 @@ void executeCommand_PORT
 )
 {
     burnWhitespace(arguments);
+    UARTPrintLn("PORT CMD Executed");
+    const char *debugBuff = arguments;
+    UARTPrintLn(debugBuff);
 
     FTP_PARSE(HostPort(arguments, &(PI_Struct->hostPort)));
 
@@ -178,7 +181,7 @@ void executeCommand_TYPE
 )
 {
     FTP_PARSE(TypeCode(arguments, &(PI_Struct->typeCode)));
-    UARTSendString("executeCommand_TYPE Called!\r\n", 50);
+    UARTPrint("executeCommand_TYPE Called!\r\n");
     formatFTPReply(FTPREPLYID_200, reply);
 }
 

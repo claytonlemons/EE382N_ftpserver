@@ -108,10 +108,10 @@ const char * parseHostPort(const char *arguments, HostPort *hostPort)
 		(
 			arguments,
 			"%hhu,%hhu,%hhu,%hhu,%hhu,%hhu%n",
-			&hostNumberAsByteArray[3],
-			&hostNumberAsByteArray[2],
-			&hostNumberAsByteArray[1],
 			&hostNumberAsByteArray[0],
+			&hostNumberAsByteArray[1],
+			&hostNumberAsByteArray[2],
+			&hostNumberAsByteArray[3],
 			&portNumberAsByteArray[1],
 			&portNumberAsByteArray[0],
 			&bytesScanned

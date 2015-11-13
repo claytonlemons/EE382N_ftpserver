@@ -228,7 +228,7 @@ int main(void) {
 
     UARTPrint("Mounting SD card...");
     SysCtlPeripheralEnable(SYSCTL_PERIPH_SSI0);
-    RIT128x96x4Init(1000000);
+    //RIT128x96x4Init(1000000);
 
     FRESULT fresult = mountSDCard();
 
