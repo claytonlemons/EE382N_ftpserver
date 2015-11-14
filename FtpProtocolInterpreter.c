@@ -63,12 +63,25 @@ static err_t ftp_RxData(void *arg, struct tcp_pcb *pcb, struct pbuf *p,
     // We process the RX data only if no errors occurred and the input buffer
     // is not empty.
     if (err == ERR_OK && p != NULL) {
+        struct pbuf *q;
+		//int totalRxDataLength = 0;
         // Grab the data from the input buffer.
         char *RxData;
-        RxData = p->payload;
+        char *NullInserter;
 
-        // TODO: here is where we should handle writing to the the File system
-        UARTPrint(RxData);
+        // Loop through all the pbufs that have data.
+		for (q = p; q != NULL; q = q->next) {
+            // TODO: here is where we will write to the file system
+            // WriteToFileSystem(q->payload, q->len, FileSystemStruct?)
+			//totalRxDataLength += q->len;
+
+            // !HACK!This is just for debugging purposes and should be removed
+            // after adding the function to write the file system.
+            RxData = q->payload;
+            NullInserter = RxData + q->len;
+            *NullInserter = '\0';
+            UARTPrint(RxData);
+		}
 
         // We need to tell the TCP module that the data has been accepted.
         tcp_recved(pcb, p->tot_len);

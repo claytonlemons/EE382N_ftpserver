@@ -154,11 +154,17 @@ void executeCommand_PORT
 )
 {
     burnWhitespace(arguments);
-    UARTPrintLn("PORT CMD Executed");
-    const char *debugBuff = arguments;
-    UARTPrintLn(debugBuff);
-
+    const char *DebugPortContents = arguments;
     FTP_PARSE(HostPort(arguments, &(PI_Struct->hostPort)));
+
+    // Debug UART Print
+    UARTPrintLn("PORT CMD Executed");
+    char debugPortBuff[64];
+    DynamicString debugPort;
+    initializeDynamicString(&debugPort, debugPortBuff, sizeof(debugPortBuff));
+    FTP_PARSE(PrintableString(DebugPortContents, &debugPort));
+    UARTPrintLn(debugPort.buffer);
+    finalizeDynamicString(&debugPort);
 
     formatFTPReply(FTPREPLYID_200, reply);
 }
@@ -230,11 +236,18 @@ void executeCommand_STOR
 
 
     // Send msg 150 to let the client the file is valid
-    formatFTPReply(FTPREPLYID_150, reply, arguments);
+	char fileNameBuff[64];
+    DynamicString fileName;
+    initializeDynamicString(&fileName, fileNameBuff, sizeof(fileNameBuff));
+    // Get the file name from the arguments
+    FTP_PARSE(PrintableString(arguments, &fileName));
+
+    formatFTPReply(FTPREPLYID_150, reply, fileName.buffer);
     if (ftp_OpenDataConnection(PI_Struct) != 0) {
         // An error occured.
         return;
     }
+    finalizeDynamicString(&fileName);
 }
 
 void executeCommand_STOU

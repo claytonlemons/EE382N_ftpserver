@@ -77,6 +77,7 @@ const char * parsePrintableString(const char *arguments, DynamicString *stringBu
 	}
 
 	memcpy(stringBuffer->buffer, arguments - stringLength, stringLength);
+	stringBuffer->buffer[stringLength] = '\0';
 
 	return arguments;
 }
