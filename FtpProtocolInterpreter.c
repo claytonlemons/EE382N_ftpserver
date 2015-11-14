@@ -12,6 +12,7 @@
 #include "ftp_replies.h"
 #include "ftp_control_block.h"
 #include "ftp_command_executor.h"
+#include "ftp_parsing_utils.h"
 #include "dynamic_string.h"
 #include "UartDebug.h"
 #include "utils/lwiplib.h"
@@ -19,6 +20,17 @@
 #include "UartDebug.h"
 
 #define kReplyBufferLength 128
+
+// This method is used to close a message connection
+err_t ftp_CloseMessageConnection (FtpPiStruct_t *PI_Struct){
+    UARTPrintLn("ftp_CloseMessageConnection called!");
+    tcp_arg(PI_Struct->MessageConnection, NULL);
+    tcp_sent(PI_Struct->MessageConnection, NULL);
+    tcp_recv(PI_Struct->MessageConnection, NULL);
+    tcp_close(PI_Struct->MessageConnection);
+    free(PI_Struct);
+    return ERR_OK;
+}
 
 // This method is used to transmit messages to the FTP client.
 // The messages are sent through the TCP pcb module using the
@@ -95,7 +107,7 @@ static err_t ftp_RxData(void *arg, struct tcp_pcb *pcb, struct pbuf *p,
     if (err == ERR_OK && p == NULL) {
         PI_Struct->PresState = READY;
         ftp_CloseDataConnection(PI_Struct);
-        PI_Struct->DataStructure.DtpState = IDLE;
+        PI_Struct->DataStructure.DtpState = DATA_CLOSED;
         // Send msg226 when the operation completes.
         char StringBuffer[kReplyBufferLength];
         DynamicString reply;
@@ -222,7 +234,16 @@ static err_t ftp_RxCmd(void *arg, struct tcp_pcb *pcb, struct pbuf *p,
                 Payload = RxData + 1;
                 break;
             }
-            RxData++;
+            // If we receive a command without arguments we will see a \r after
+            // the command. We replace the \r with a NULL to process the command
+            // properly.
+            if(*RxData == '\r'){
+                parseEOL(RxData);
+                *RxData = '\0';
+                break;
+            } else{
+                RxData++;
+            }
         }
 
         // Convert the command string to an FTPCommandString
@@ -255,18 +276,13 @@ static err_t ftp_RxCmd(void *arg, struct tcp_pcb *pcb, struct pbuf *p,
 // completes a transmission.
 static err_t ftp_CmdSent(void *arg, struct tcp_pcb *pcb, u16_t len)
 {
-    //  FtpPiStruct_t *PI_Struct = arg;
+    FtpPiStruct_t *PI_Struct = arg;
+    UARTPrintLn("ftp_CmdSent Called!");
 
-    // Check the present state of the TCP state machine. If it is greater than
-    // "ESTABLISHED", we simply return. The only states that are < ESTABLISHED
-    // are:
-    // CLOSED      = 0,
-    // LISTEN      = 1,
-    // SYN_SENT    = 2,
-    // SYN_RCVD    = 3,
-	if (pcb->state > ESTABLISHED){
-		UARTPrintLn("ftp_CmdSent Called!");
-		return ERR_OK;
+    // Close the message connection when we receive the quit command
+    if((PI_Struct->PresState == QUIT ) &&
+       (PI_Struct->DataStructure.DtpState == DATA_CLOSED)){
+        ftp_CloseMessageConnection(PI_Struct);
     }
 
     return ERR_OK;
@@ -312,7 +328,11 @@ static err_t ftp_Accept(void *arg, struct tcp_pcb *pcb, err_t err)
     PI_Structure = malloc(sizeof(FtpPiStruct_t));
     PI_Structure->PresState = WAIT_FOR_USERNAME;
     PI_Structure->MessageConnection = pcb;
+    // Apply default values for new connections
     PI_Structure->hostPort.portNumber = 0;
+    PI_Structure->typeCode = TYPECODE_A;
+    PI_Structure->structCode = STRUCTURECODE_F;
+    PI_Structure->modeCode = MODECODE_S;
     tcp_arg(pcb, PI_Structure);
 
     // Tell TCP that we wish to be informed of incoming data by a call

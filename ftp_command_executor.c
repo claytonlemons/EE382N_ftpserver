@@ -143,7 +143,8 @@ void executeCommand_QUIT
     FtpPiStruct_t *PI_Struct
 )
 {
-    formatFTPReply(FTPREPLYID_502, reply);
+    PI_Struct->PresState = QUIT;
+    formatFTPReply(FTPREPLYID_221, reply);
 }
 
 void executeCommand_PORT
@@ -186,9 +187,16 @@ void executeCommand_TYPE
     FtpPiStruct_t *PI_Struct
 )
 {
-    FTP_PARSE(TypeCode(arguments, &(PI_Struct->typeCode)));
+
     UARTPrint("executeCommand_TYPE Called!\r\n");
-    formatFTPReply(FTPREPLYID_200, reply);
+    TypeCode PrevTypeCode = PI_Struct->typeCode;
+    FTP_PARSE(TypeCode(arguments, &(PI_Struct->typeCode)));
+    if((PI_Struct->typeCode) == TYPECODE_UNKNOWN){
+        PI_Struct->typeCode = PrevTypeCode;
+    	formatFTPReply(FTPREPLYID_504, reply);
+    } else {
+        formatFTPReply(FTPREPLYID_200, reply);
+    }
 }
 
 void executeCommand_STRU
@@ -198,7 +206,15 @@ void executeCommand_STRU
     FtpPiStruct_t *PI_Struct
 )
 {
-    formatFTPReply(FTPREPLYID_502, reply);
+    UARTPrint("executeCommand_STRU Called!\r\n");
+    FTP_PARSE(StructureCode(arguments, &(PI_Struct->structCode)));
+    if((PI_Struct->structCode) != STRUCTURECODE_F){
+        // The only supported structure code is File
+        PI_Struct->structCode = STRUCTURECODE_F;
+    	formatFTPReply(FTPREPLYID_504, reply);
+    } else {
+        formatFTPReply(FTPREPLYID_200, reply);
+    }
 }
 
 void executeCommand_MODE
@@ -208,7 +224,15 @@ void executeCommand_MODE
     FtpPiStruct_t *PI_Struct
 )
 {
-    formatFTPReply(FTPREPLYID_502, reply);
+    UARTPrint("executeCommand_MODE Called!\r\n");
+    FTP_PARSE(ModeCode(arguments, &(PI_Struct->modeCode)));
+    if((PI_Struct->modeCode) != MODECODE_S){
+        // The only supported mode code is Stream
+        PI_Struct->modeCode = MODECODE_S;
+    	formatFTPReply(FTPREPLYID_504, reply);
+    } else {
+        formatFTPReply(FTPREPLYID_200, reply);
+    }
 }
 
 void executeCommand_RETR
