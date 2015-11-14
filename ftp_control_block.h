@@ -18,13 +18,6 @@ typedef struct
 	uint16_t portNumber;
 } HostPort;
 
-typedef enum
-{
-	FORMCODE_UNKNOWN,
-	FORMCODE_N,
-	FORMCODE_T,
-	FORMCODE_C
-} FormCode;
 
 typedef enum
 {
@@ -56,12 +49,13 @@ typedef enum {
     WAIT_FOR_USERNAME,
     WAIT_FOR_PASSWORD,
     READY,
-    DATA_CONN_OPEN
+    DATA_CONN_OPEN,
+	QUIT
 } FtpPiState_t;
 
 // This enum defines the possible states of the DataConnection
 typedef enum {
-    IDLE,
+    DATA_CLOSED,
     TX_FILE,
 	TX_DIR,
     RX,
@@ -92,9 +86,9 @@ typedef struct FtpPiStruct_t{
     struct tcp_pcb *DataConnection;
     FTP_DTP_CB DataStructure;
     HostPort hostPort;
-    FormCode formCode;
     TypeCode typeCode;
     StructureCode structCode;
+    ModeCode modeCode;
 } FtpPiStruct_t;
 
 

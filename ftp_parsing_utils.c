@@ -16,7 +16,7 @@ const char * burnWhitespace(const char *arguments)
 
 const char * parseEOL(const char *arguments)
 {
-	if (arguments[0] == '\13' && arguments[1] == '\10')
+	if (arguments[0] == '\r' && arguments[1] == '\n')
 	{
 		return arguments + 2;
 	}
@@ -28,7 +28,7 @@ const char * parseEOL(const char *arguments)
 
 const char * parseString(const char *arguments, DynamicString *stringBuffer)
 {
-	size_t stringLength = 0;	
+	size_t stringLength = 0;
 
 	while
 	(
@@ -103,7 +103,7 @@ const char * parseHostPort(const char *arguments, HostPort *hostPort)
 	// @TODO: Depending on the endianness of the system, we may need to change the order
 	// in which we index the byte arrays below.
 	size_t bytesScanned = 0;
-	if 
+	if
 	(
 		sscanf
 		(
@@ -140,53 +140,47 @@ const char * parseDecimalInteger(const char *arguments, uint32_t *decimalInteger
 	}
 }
 
-const char * parseFormCode(const char *arguments, FormCode *formCode)
-{
-	switch (arguments[0])
-	{
-		case 'N':
-			*formCode = FORMCODE_N;
-			break;
-			
-		case 'T':
-			*formCode = FORMCODE_T;
-			break;
-			
-		case 'C':
-			*formCode = FORMCODE_C;
-			break;
-			
-		default:
-			return NULL;
-	}
-	
-	return arguments + 1;	
-}
-
 const char * parseTypeCode(const char *arguments, TypeCode *typeCode)
 {
 	switch (arguments[0])
 	{
 		case 'A':
-			*typeCode = TYPECODE_A;
+            if (arguments[1] == ' '){
+                if (arguments[2] == 'N'){
+                    // The only supported ASCII type is Non-print.
+                    *typeCode = TYPECODE_A;
+                }
+                 else{
+                    *typeCode = TYPECODE_UNKNOWN;
+                }
+            // The server uses the default Non-print form-code when only the 'A'
+            // argument is received.
+            } else if(arguments[1] == '\r'){
+                // The only supported ASCII type is Non-print.
+                *typeCode = TYPECODE_A;
+            } else{
+                *typeCode = TYPECODE_UNKNOWN;
+            }
 			break;
-			
+
+
 		case 'E':
-			*typeCode = TYPECODE_E;
+			*typeCode = TYPECODE_UNKNOWN;
 			break;
-			
+
 		case 'I':
 			*typeCode = TYPECODE_I;
 			break;
-			
+
 		case 'L':
-			*typeCode = TYPECODE_L;
+			*typeCode = TYPECODE_UNKNOWN;
 			break;
-			
+
 		default:
+            *typeCode = TYPECODE_UNKNOWN;
 			return NULL;
 	}
-	
+
 	return arguments + 1;
 }
 
@@ -197,19 +191,19 @@ const char * parseStructureCode(const char *arguments, StructureCode *structureC
 		case 'F':
 			*structureCode = STRUCTURECODE_F;
 			break;
-			
+
 		case 'R':
 			*structureCode = STRUCTURECODE_R;
 			break;
-			
+
 		case 'P':
 			*structureCode = STRUCTURECODE_P;
 			break;
-			
+
 		default:
 			return NULL;
 	}
-	
+
 	return arguments + 1;
 }
 
@@ -220,18 +214,19 @@ const char * parseModeCode(const char *arguments, ModeCode *modeCode)
 		case 'S':
 			*modeCode = MODECODE_S;
 			break;
-			
+
 		case 'B':
 			*modeCode = MODECODE_B;
 			break;
-			
+
 		case 'C':
 			*modeCode = MODECODE_C;
 			break;
-			
+
 		default:
+            *modeCode = MODECODE_UNKNOWN;
 			return NULL;
 	}
-	
+
 	return arguments + 1;
 }
