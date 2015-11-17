@@ -18,6 +18,7 @@
 #include "utils/lwiplib.h"
 #include "drivers/rit128x96x4.h"
 #include "UartDebug.h"
+#include "sdcard.h"
 
 #define kReplyBufferLength 128
 
@@ -63,40 +64,40 @@ err_t ftp_CloseDataConnection (FtpPiStruct_t *PI_Struct){
 
 // This method is used to take action when the TCP Data connection receives
 // data for us.
-static err_t ftp_RxData(void *arg, struct tcp_pcb *pcb, struct pbuf *p,
-    err_t err)
+static err_t ftp_RxData(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err)
 {
-	UARTPrint("ftp_RxData Called!\r\n");
+	//UARTPrint("ftp_RxData Called!\r\n");
 
     FtpPiStruct_t *PI_Struct = arg;
 
-
-
-    // We process the RX data only if no errors occurred and the input buffer
-    // is not empty.
-    if (err == ERR_OK && p != NULL) {
+    // We process the RX data only if no errors occurred and the input buffer is not empty.
+    if (err == ERR_OK && p != NULL)
+    {
         struct pbuf *q;
-		//int totalRxDataLength = 0;
-        // Grab the data from the input buffer.
-        char *RxData;
-        char *NullInserter;
+        uint8_t *receivedData;
+		WORD totalBytesWritten = 0;
 
         // Loop through all the pbufs that have data.
-		for (q = p; q != NULL; q = q->next) {
-            // TODO: here is where we will write to the file system
-            // WriteToFileSystem(q->payload, q->len, FileSystemStruct?)
-			//totalRxDataLength += q->len;
+		for (q = p; q != NULL; q = q->next)
+		{
+			receivedData = q->payload;
 
-            // !HACK!This is just for debugging purposes and should be removed
-            // after adding the function to write the file system.
-            RxData = q->payload;
-            NullInserter = RxData + q->len;
-            *NullInserter = '\0';
-            UARTPrint(RxData);
+            WORD bytesWritten = 0;
+            while (bytesWritten != q->len)
+            {
+            	FRESULT fresult = writeToFile(&PI_Struct->DataStructure.file, receivedData + bytesWritten, q->len, &bytesWritten);
+            	if (fresult != FR_OK)
+            	{
+            		UARTPrintLn(fresultToString(fresult));
+            		return ERR_ABRT; // @TODO: What is the right error to return?
+            	}
+            }
+
+            totalBytesWritten += bytesWritten;
 		}
 
         // We need to tell the TCP module that the data has been accepted.
-        tcp_recved(pcb, p->tot_len);
+        tcp_recved(pcb, totalBytesWritten);
 
         // Deallocate the input buffer.
         pbuf_free(p);
@@ -106,15 +107,18 @@ static err_t ftp_RxData(void *arg, struct tcp_pcb *pcb, struct pbuf *p,
     // the client. We proceed to close the connection
     if (err == ERR_OK && p == NULL) {
         PI_Struct->PresState = READY;
-        ftp_CloseDataConnection(PI_Struct);
         PI_Struct->DataStructure.DtpState = DATA_CLOSED;
+        closeFile(&PI_Struct->DataStructure.file);
+        ftp_CloseDataConnection(PI_Struct);
+
         // Send msg226 when the operation completes.
         char StringBuffer[kReplyBufferLength];
         DynamicString reply;
         initializeDynamicString(&reply, StringBuffer, sizeof(StringBuffer));
+
         formatFTPReply(FTPREPLYID_226, &reply);
-        ftp_SendMsg((PI_Struct->MessageConnection), reply.buffer,
-            strlen(reply.buffer));
+        ftp_SendMsg((PI_Struct->MessageConnection), reply.buffer, strlen(reply.buffer));
+
         finalizeDynamicString(&reply);
     }
 

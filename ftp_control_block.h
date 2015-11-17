@@ -58,7 +58,7 @@ typedef enum {
     DATA_CLOSED,
     TX_FILE,
 	TX_DIR,
-    RX,
+    RX_FILE,
     ABORTED
 } DTP_State_t;
 
@@ -71,7 +71,7 @@ typedef enum {
 // This is the structure used to keep track of the state of the
 // data connection.
 typedef struct FTP_DTP_CB{
-    FIL *file;
+    FIL file;
     char *buffer;
     int bytesTransferred;
     Source_Type sType;
