@@ -243,7 +243,30 @@ void executeCommand_RETR
     FtpPiStruct_t *PI_Struct
 )
 {
-    formatFTPReply(FTPREPLYID_502, reply);
+    // Send msg 150 to let the client the file is valid
+	char fileNameBuff[64];
+    DynamicString fileName;
+    initializeDynamicString(&fileName, fileNameBuff, sizeof(fileNameBuff));
+    // Get the file name from the arguments
+    FTP_PARSE(PrintableString(arguments, &fileName));
+
+    FRESULT fresult = openFile("/", fileName.buffer, &PI_Struct->DataStructure.file, FA_READ);
+    if (fresult != FR_OK)
+    {
+    	formatFTPReply(FTPREPLYID_550, reply);
+    	return;
+    }
+
+    PI_Struct->DataStructure.DtpState = TX_FILE;
+    PI_Struct->DataStructure.bytesRemaining = PI_Struct->DataStructure.file.fsize;
+    PI_Struct->DataStructure.sType = FromFile;
+
+    formatFTPReply(FTPREPLYID_150, reply, fileName.buffer);
+    if (ftp_OpenDataConnection(PI_Struct) != 0) {
+        // @TODO: An error occured. Reply with a message
+        return;
+    }
+    finalizeDynamicString(&fileName);
 }
 
 void executeCommand_STOR
@@ -268,7 +291,7 @@ void executeCommand_STOR
     }
 
     PI_Struct->DataStructure.DtpState = RX_FILE;
-    PI_Struct->DataStructure.bytesTransferred = 0;
+    PI_Struct->DataStructure.bytesRemaining = 0;
     PI_Struct->DataStructure.sType = FromFile;
 
     formatFTPReply(FTPREPLYID_150, reply, fileName.buffer);

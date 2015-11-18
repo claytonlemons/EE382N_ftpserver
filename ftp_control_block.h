@@ -73,7 +73,7 @@ typedef enum {
 typedef struct FTP_DTP_CB{
     FIL file;
     char *buffer;
-    int bytesTransferred;
+    int bytesRemaining;
     Source_Type sType;
     DTP_State_t DtpState;
 } FTP_DTP_CB;
