@@ -485,7 +485,45 @@ void executeCommand_HELP
     FtpPiStruct_t *PI_Struct
 )
 {
-    formatFTPReply(FTPREPLYID_502, reply);
+	const char *HelpMessage = "\
+    214-LM3S8962 FTP Server \r\n\
+    214-\r\n\
+    214-This FTP server is running on a TI LM3S8962. This server implements\r\n\
+    214-a subset of the FTP commands to execute basic FTP operations.\r\n\
+    214-The commands implemented in the server are:\r\n\
+    214-\r\n\
+    214-USER: used to set the username for the FTP session\r\n\
+    214-\r\n\
+    214-PASS: used to send the password for the FTP session\r\n\
+    214-\r\n\
+    214-QUIT: used to end the FTP session\r\n\
+    214-\r\n\
+    214-PORT: used to send the IP address and port for the data connection.\r\n\
+    214-      The syntax is PORT a1,a2,a3,a4,p1,p2.\r\n\
+    214-      This is interpreted as IP address a1.a2.a3.a4, port p1*256+p2\r\n\
+    214-\r\n\
+    214-TYPE: used to set the format of the data transmission.\r\n\
+    214-      The syntax is:\r\n\
+    214-      TYPE A for ASCII files\r\n\
+    214-      TYPE I for binary files\r\n\
+    214-\r\n\
+    214-STRU: used to set the file structure. The only value supported is:\r\n\
+    214-      STRU F (file structure).\r\n\
+    214-MODE: used to set the transfer mode. The only value supported is:\r\n\
+    214-      MODE S (stream).\r\n\
+    214-\r\n\
+    214-RETR: used to request a file from the server.\r\n\
+    214-      RETR remote-filename\r\n\
+    214-\r\n\
+    214-STOR: used to send a file to the server.\r\n\
+    214-      STOR local-filename\r\n\
+    214-\r\n\
+    214-STAT: used to display the current state of the server.\r\n\
+    214-\r\n\
+    214-HELP: used to display this message.\r\n\
+    214-\r\n\
+    214 NOOP: does nothing except return a response.\r\n";
+    formatFTPReply(FTPREPLYID_214, reply, HelpMessage);
 }
 
 void executeCommand_NOOP
