@@ -21,7 +21,7 @@
 #include "sdcard.h"
 #include "UartDebug.h"
 #include "fatfs/src/ff.h"
-
+#include "UartDebug.h"
 #include "lwip/tcp.h"
 
 //#include "io.h"
@@ -136,8 +136,6 @@ lwIPHostTimerHandler(void)
 
     }
 }
-
-static FATFS fatFS;
 
 int main(void) {
     unsigned long ulUser0, ulUser1;

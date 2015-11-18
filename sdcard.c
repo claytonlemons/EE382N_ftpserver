@@ -35,6 +35,7 @@
 #include "fatfs/src/diskio.h"
 #include "dynamic_string.h"
 #include "stdio.h"
+#include "stdint.h"
 
 #define CHECK_FRESULT(snippet) fresult = (snippet); if (fresult != FR_OK) goto ERROR;
 
@@ -153,9 +154,54 @@ ERROR:
 	return fresult;
 }
 
+FRESULT openFile(const char *cwd, const char *filepath, FIL *file, BYTE mode)
+{
+	FRESULT fresult;
+
+	char *finalPath = malloc(strlen(cwd) + strlen(filepath) + 1);
+
+	strcpy(finalPath, cwd);
+	strcat(finalPath, filepath);
+
+	CHECK_FRESULT(f_open(file, finalPath, mode));
+
+ERROR:
+	return fresult;
+}
+
+FRESULT closeFile(FIL *file)
+{
+	FRESULT fresult;
+
+	CHECK_FRESULT(f_close(file));
+
+ERROR:
+	return fresult;
+}
+
+FRESULT readFromFile(FIL *file, uint8_t *buffer, WORD bytesToRead, WORD *bytesRead)
+{
+	FRESULT fresult;
+
+	CHECK_FRESULT(f_read(file, buffer, bytesToRead, bytesRead));
+
+ERROR:
+	return fresult;
+}
+
+FRESULT writeToFile(FIL *file, const uint8_t *buffer, WORD bytesToWrite, WORD *bytesWritten)
+{
+	FRESULT fresult;
+
+	CHECK_FRESULT(f_write(file, buffer, bytesToWrite, bytesWritten));
+
+ERROR:
+	return fresult;
+}
+
 
 // Open directoryPath and show its contents
-FRESULT getDirectoryContents(char *directoryPath, DynamicString *directoryContents, size_t *totalBytesWritten)
+FRESULT readDirectoryContents(char *directoryPath, DynamicString *directoryContents, size_t *totalBytesWritten)
 {
     FRESULT fresult = FR_OK;
 

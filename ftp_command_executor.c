@@ -15,6 +15,7 @@
 #include "FtpProtocolInterpreter.h"
 #include "UartDebug.h"
 #include "sdcard.h"
+#include "stdlib.h"
 
 void executeCommand
 (
@@ -242,7 +243,30 @@ void executeCommand_RETR
     FtpPiStruct_t *PI_Struct
 )
 {
-    formatFTPReply(FTPREPLYID_502, reply);
+    // Send msg 150 to let the client the file is valid
+	char fileNameBuff[64];
+    DynamicString fileName;
+    initializeDynamicString(&fileName, fileNameBuff, sizeof(fileNameBuff));
+    // Get the file name from the arguments
+    FTP_PARSE(PrintableString(arguments, &fileName));
+
+    FRESULT fresult = openFile("/", fileName.buffer, &PI_Struct->DataStructure.file, FA_READ);
+    if (fresult != FR_OK)
+    {
+    	formatFTPReply(FTPREPLYID_550, reply);
+    	return;
+    }
+
+    PI_Struct->DataStructure.DtpState = TX_FILE;
+    PI_Struct->DataStructure.bytesRemaining = PI_Struct->DataStructure.file.fsize;
+    PI_Struct->DataStructure.sType = FromFile;
+
+    formatFTPReply(FTPREPLYID_150, reply, fileName.buffer);
+    if (ftp_OpenDataConnection(PI_Struct) != 0) {
+        // @TODO: An error occured. Reply with a message
+        return;
+    }
+    finalizeDynamicString(&fileName);
 }
 
 void executeCommand_STOR
@@ -252,13 +276,6 @@ void executeCommand_STOR
     FtpPiStruct_t *PI_Struct
 )
 {
-    // TODO: check if the file is writable/available or
-    //if (problemWithFile) {
-        //formatFTPReply(FTPREPLYID_550, reply);
-        //return;
-    //}
-
-
     // Send msg 150 to let the client the file is valid
 	char fileNameBuff[64];
     DynamicString fileName;
@@ -266,9 +283,20 @@ void executeCommand_STOR
     // Get the file name from the arguments
     FTP_PARSE(PrintableString(arguments, &fileName));
 
+    FRESULT fresult = openFile("/", fileName.buffer, &PI_Struct->DataStructure.file, FA_WRITE | FA_CREATE_ALWAYS); // @TODO: use the cwd from the PI_Struct
+    if (fresult != FR_OK)
+    {
+    	formatFTPReply(FTPREPLYID_550, reply);
+    	return;
+    }
+
+    PI_Struct->DataStructure.DtpState = RX_FILE;
+    PI_Struct->DataStructure.bytesRemaining = 0;
+    PI_Struct->DataStructure.sType = FromFile;
+
     formatFTPReply(FTPREPLYID_150, reply, fileName.buffer);
     if (ftp_OpenDataConnection(PI_Struct) != 0) {
-        // An error occured.
+        // @TODO: An error occured. Reply with a message
         return;
     }
     finalizeDynamicString(&fileName);
@@ -436,10 +464,10 @@ void executeCommand_STAT
     initializeDynamicString(&directoryContents, NULL, 0);
 
     size_t bytesWritten = 0;
-    getDirectoryContents("/", &directoryContents, &bytesWritten);
+    readDirectoryContents("/", &directoryContents, &bytesWritten);
 
     resizeDynamicString(&directoryContents, bytesWritten);
-    getDirectoryContents("/", &directoryContents, &bytesWritten);
+    readDirectoryContents("/", &directoryContents, &bytesWritten);
 
     UARTPrintLn(directoryContents.buffer);
 
