@@ -29,15 +29,15 @@ FTPCommandString ftpCommandIDToString(FTPCommandID commandID)
 FTPCommandID ftpCommandStringToID(FTPCommandString commandString)
 {
 	FTPCommand *ftpCommandPtr = ftpCommands;
-	while (ftpCommandPtr != NULL)
+	while (ftpCommandPtr->commandString != NULL)
 	{
 		if (strcmp(commandString, ftpCommandPtr->commandString) == 0)
 		{
-			return ftpCommandPtr->commandID;
+			break;
 		} else{
             ftpCommandPtr++;
         }
 	}
 
-	return UNKNOWN_COMMAND;
+	return ftpCommandPtr->commandID;
 }

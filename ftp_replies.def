@@ -5,10 +5,10 @@ FTP_REPLY_XMACRO(150, "150 File status okay; about to open data connection for %
 FTP_REPLY_XMACRO(200, "200 Command okay.\r\n")
 FTP_REPLY_XMACRO(202, "Command not implemented, superfluous at this site.")
 FTP_REPLY_XMACRO(211, "%s") // System status, or system help reply.
-FTP_REPLY_XMACRO(212, "212-Status follows:\r\n%s\r\n212 End of status") // Directory status.
-FTP_REPLY_XMACRO(213, "213-Status follows:\r\n%s\r\n213 End of status") // File status.
-FTP_REPLY_XMACRO(214, "%s") // Help message. On how to use the server or the meaning of a particular non-standard command.  This reply is useful only to the human user.
-FTP_REPLY_XMACRO(215, "%s") // NAME system type. Where NAME is an official system name from the list in the Assigned Numbers document.
+FTP_REPLY_XMACRO(212, "212-BEGIN DIRECTORY STAT\r\n%s212 END DIRECTORY STAT\r\n") // Directory status.
+FTP_REPLY_XMACRO(213, "213-BEGIN FILE STAT\r\n%s213 END FILE STAT\r\n") // File status.
+FTP_REPLY_XMACRO(214, "214-BEGIN HELP\r\n%s214 END HELP\r\n") // Help message. On how to use the server or the meaning of a particular non-standard command.  This reply is useful only to the human user.
+FTP_REPLY_XMACRO(215, "215 %s\r\n") // NAME system type. Where NAME is an official system name from the list in the Assigned Numbers document.
 FTP_REPLY_XMACRO(220, "220 Welcome to LM3S8962 FTP Server\r\n")
 FTP_REPLY_XMACRO(221, "221 Service closing control connection. Thank you for visiting LM3S8962 FTP Server\r\n")
 FTP_REPLY_XMACRO(225, "Data connection open; no transfer in progress.")
@@ -33,7 +33,7 @@ FTP_REPLY_XMACRO(503, "Bad sequence of commands.")
 FTP_REPLY_XMACRO(504, "504 Command not implemented for that parameter. \r\n")
 FTP_REPLY_XMACRO(530, "Not logged in.")
 FTP_REPLY_XMACRO(532, "Need account for storing files.")
-FTP_REPLY_XMACRO(550, "Requested action not taken. File unavailable.") // for example, file not found, no access
+FTP_REPLY_XMACRO(550, "550 Requested action not taken. File or directory unavailable.\r\n") // for example, file not found, no access
 FTP_REPLY_XMACRO(551, "Requested action aborted: page type unknown.")
 FTP_REPLY_XMACRO(552, "552 Requested file action aborted. Exceeded storage allocation.\r\n") // for current directory or dataset
 FTP_REPLY_XMACRO(553, "Requested action not taken. File name not allowed.")

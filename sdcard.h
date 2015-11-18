@@ -14,6 +14,8 @@
 const char *fresultToString(FRESULT fresult);
 void FatFSTickHandler(void);
 FRESULT mountSDCard();
+FRESULT getFileInfo(const char *cwd, const char *filepath, FILINFO *fileInfo);
+FRESULT openDirectory(const char *cwd, const char *directoryPath, DIR *directory);
 FRESULT openFile(const char *cwd, const char *filepath, FIL *file, BYTE mode);
 FRESULT closeFile(FIL *file);
 FRESULT readFromFile(FIL *file, uint8_t *buffer, WORD bytesToRead, WORD *bytesRead);

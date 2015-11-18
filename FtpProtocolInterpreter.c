@@ -128,7 +128,7 @@ static err_t ftp_RxData(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t er
 
 // This method is used to take action when the TCP Data connection receives
 // data for us.
-static err_t ftp_SendData(struct tcp_pcb *pcb, uint8_t *data, size_t length)
+static err_t ftp_SendData(struct tcp_pcb *pcb, void *data, size_t length)
 {
 	err_t err;
 
@@ -148,6 +148,67 @@ static err_t ftp_SendData(struct tcp_pcb *pcb, uint8_t *data, size_t length)
 	}
 
 	return err;
+}
+
+// 8.3 filename format + 3 bytes for EOL and NULL :)
+#define FILE_INFO_BUFFER_SIZE (8 + 1 + 3 + 3)
+
+static err_t ftp_SendDirectoryListing(struct tcp_pcb *pcb, FtpPiStruct_t *PI_Struct)
+{
+	FILINFO fileInfo;
+	f_readdir(&PI_Struct->DataStructure.directory, &fileInfo);
+
+	if (fileInfo.fname[0] == NULL)
+	{
+		// @TODO: Refactor this code with the code in ftp_RxData
+        PI_Struct->PresState = READY;
+        PI_Struct->DataStructure.DtpState = DATA_CLOSED;
+        ftp_CloseDataConnection(PI_Struct);
+
+        // Send msg226 when the operation completes.
+        char StringBuffer[kReplyBufferLength];
+        DynamicString reply;
+        initializeDynamicString(&reply, StringBuffer, sizeof(StringBuffer));
+
+        formatFTPReply(FTPREPLYID_226, &reply);
+        ftp_SendMsg((PI_Struct->MessageConnection), reply.buffer, strlen(reply.buffer));
+
+        finalizeDynamicString(&reply);
+
+        return ERR_OK;
+	}
+
+	char fileInfoBuffer[FILE_INFO_BUFFER_SIZE];
+
+	snprintf
+	(
+		fileInfoBuffer,
+		FILE_INFO_BUFFER_SIZE,
+		"%s\r\n",
+		fileInfo.fname
+	);
+
+	ftp_SendData(pcb, fileInfoBuffer, FILE_INFO_BUFFER_SIZE);
+
+	return ERR_OK;
+}
+
+static err_t ftp_SendListing(struct tcp_pcb *pcb, FtpPiStruct_t *PI_Struct)
+{
+	if (PI_Struct->DataStructure.fileInfo.fattrib & AM_DIR)
+	{
+		if (openDirectory("/", PI_Struct->DataStructure.fileInfo.fname, &PI_Struct->DataStructure.directory) != FR_OK)
+		{
+			UARTPrintLn("Error: unable to open directory for sending listing!");
+		}
+
+		return ftp_SendDirectoryListing(pcb, PI_Struct);
+	}
+	else
+	{
+		// @TODO: Handle sending a listing for a single file here
+		return ERR_OK;
+	}
 }
 
 static err_t ftp_SendFile(struct tcp_pcb *pcb, FtpPiStruct_t *PI_Struct)
@@ -184,10 +245,17 @@ static err_t ftp_DataSent(void *arg, struct tcp_pcb *pcb, u16_t len){
     UARTPrint("ftp_DataSent Called!\r\n");
 
     switch (PI_Struct->DataStructure.DtpState) {
-        case TX_DIR:
-            //TODO: need tcp_SendData and tcp_SendDir
+        case STATE_SEND_LISTING:
+        	if (PI_Struct->DataStructure.fileInfo.fattrib & AM_DIR)
+        	{
+        		ftp_SendDirectoryListing(pcb, PI_Struct);
+        	}
+        	else
+        	{
+        		// @TODO: Handle file stuff
+        	}
             break;
-        case TX_FILE:
+        case STATE_SEND_FILE:
         	if (PI_Struct->DataStructure.bytesRemaining > 0)
         	{
         		err = ftp_SendFile(pcb, PI_Struct);
@@ -238,17 +306,15 @@ static err_t ftp_DataConnected(void *arg, struct tcp_pcb *pcb, err_t err){
     tcp_sent(pcb, ftp_DataSent);
 
     switch (PI_Struct->DataStructure.DtpState) {
-        case TX_DIR:
-            //TODO: need tcp_SendData and tcp_SendDir
-            break;
-        case TX_FILE:
-        	// Kick off the file transfer
-        	ftp_SendFile(pcb, PI_Struct);
-            break;
+        case STATE_SEND_LISTING:
+        	return ftp_SendListing(pcb, PI_Struct);
+
+        case STATE_SEND_FILE:
+        	return ftp_SendFile(pcb, PI_Struct);
+
         default:
-            break;
+            return ERR_ARG; // Invalid STATE!
     }
-    return ERR_OK;
 }
 
 // This method is used to open a TCP data connection.

@@ -154,18 +154,60 @@ ERROR:
 	return fresult;
 }
 
+FRESULT getFileInfo(const char *cwd, const char *filepath, FILINFO *fileInfo)
+{
+	FRESULT fresult;
+
+	// @TODO: Refactor this code into a function that properly handles relative and absolute paths
+	char *finalPath = malloc(strlen(cwd) + strlen(filepath) + 1);
+
+	// @TODO: add this back in once we can handle absolute paths
+	//strcpy(finalPath, cwd);
+	//strcat(finalPath, filepath);
+	strcpy(finalPath, filepath);
+
+	CHECK_FRESULT(f_stat(finalPath, fileInfo));
+
+ERROR:
+	free(finalPath);
+	return fresult;
+}
+
 FRESULT openFile(const char *cwd, const char *filepath, FIL *file, BYTE mode)
 {
 	FRESULT fresult;
 
+	// @TODO: Refactor this code into a function that properly handles relative and absolute paths
 	char *finalPath = malloc(strlen(cwd) + strlen(filepath) + 1);
 
-	strcpy(finalPath, cwd);
-	strcat(finalPath, filepath);
+	// @TODO: add this back in once we can handle absolute paths
+	//strcpy(finalPath, cwd);
+	//strcat(finalPath, filepath);
+	strcpy(finalPath, filepath);
 
 	CHECK_FRESULT(f_open(file, finalPath, mode));
 
 ERROR:
+	free(finalPath);
+	return fresult;
+}
+
+FRESULT openDirectory(const char *cwd, const char *directoryPath, DIR *directory)
+{
+	FRESULT fresult;
+
+	// @TODO: Refactor this code into a function that properly handles relative and absolute paths
+	char *finalPath = malloc(strlen(cwd) + strlen(directoryPath) + 1);
+
+	// @TODO: add this back in once we can handle absolute paths
+	//strcpy(finalPath, cwd);
+	//strcat(finalPath, directoryPath);
+	strcpy(finalPath, directoryPath);
+
+	CHECK_FRESULT(f_opendir(directory, finalPath));
+
+ERROR:
+	free(finalPath);
 	return fresult;
 }
 
