@@ -9,6 +9,7 @@
 #define FTP_CONTROL_BLOCK_H_
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include "fatfs/src/FF.h"
 #include <lwip/src/include/ipv4/lwip/ip_addr.h>
 
@@ -58,7 +59,7 @@ typedef enum {
     DATA_CLOSED,
     STATE_SEND_FILE,
 	STATE_SEND_LISTING,
-    RX_FILE,
+    STATE_RECEIVE_FILE,
     ABORTED
 } DTP_State_t;
 
@@ -74,10 +75,10 @@ typedef struct FTP_DTP_CB{
     FILINFO fileInfo;
     FIL file;
     DIR directory;
-    char *buffer; // @TODO: convert to resizable buffer?
     int bytesRemaining;
-    Source_Type sType; // @TODO: We may not need this
-    DTP_State_t DtpState;
+    char outputBuffer[TCP_SND_BUF];
+    DTP_State_t dtpState;
+    bool detailedListing;
 } FTP_DTP_CB;
 
 // This is the structure used to keep track of the state of the
