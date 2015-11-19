@@ -28,7 +28,7 @@ bool formatFTPReply(FTPReplyID replyID, DynamicString *reply, ...)
 	}
 	else if (bytesWritten >= reply->length) // buffer is too small
 	{
-		if (resizeDynamicString(reply, bytesWritten)) // resize buffer and try again
+		if (resizeDynamicString(reply, bytesWritten + 1)) // resize buffer and try again
 		{
 			vsnprintf(reply->buffer, reply->length, ftpReplyFormatStrings[replyID], args);
 			formattingSuccessful = true;

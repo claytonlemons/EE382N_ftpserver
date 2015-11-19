@@ -56,8 +56,8 @@ typedef enum {
 // This enum defines the possible states of the DataConnection
 typedef enum {
     DATA_CLOSED,
-    TX_FILE,
-	TX_DIR,
+    STATE_SEND_FILE,
+	STATE_SEND_LISTING,
     RX_FILE,
     ABORTED
 } DTP_State_t;
@@ -71,10 +71,12 @@ typedef enum {
 // This is the structure used to keep track of the state of the
 // data connection.
 typedef struct FTP_DTP_CB{
+    FILINFO fileInfo;
     FIL file;
-    char *buffer;
+    DIR directory;
+    char *buffer; // @TODO: convert to resizable buffer?
     int bytesRemaining;
-    Source_Type sType;
+    Source_Type sType; // @TODO: We may not need this
     DTP_State_t DtpState;
 } FTP_DTP_CB;
 
