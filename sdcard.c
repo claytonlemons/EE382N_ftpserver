@@ -4,20 +4,20 @@
 //
 // Copyright (c) 2007-2013 Texas Instruments Incorporated.  All rights reserved.
 // Software License Agreement
-// 
+//
 // Texas Instruments (TI) is supplying this software for use solely and
 // exclusively on TI's microcontroller products. The software is owned by
 // TI and/or its suppliers, and is protected under applicable copyright
 // laws. You may not combine this software with "viral" open-source
 // software in order to form a larger program.
-// 
+//
 // THIS SOFTWARE IS PROVIDED "AS IS" AND WITH ALL FAULTS.
 // NO WARRANTIES, WHETHER EXPRESS, IMPLIED OR STATUTORY, INCLUDING, BUT
 // NOT LIMITED TO, IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
 // A PARTICULAR PURPOSE APPLY TO THIS SOFTWARE. TI SHALL NOT, UNDER ANY
 // CIRCUMSTANCES, BE LIABLE FOR SPECIAL, INCIDENTAL, OR CONSEQUENTIAL
 // DAMAGES, FOR ANY REASON WHATSOEVER.
-// 
+//
 // This is part of revision 10007 of the EK-LM3S8962 Firmware Package.
 //
 //*****************************************************************************
@@ -95,6 +95,71 @@ tFresultString g_sFresultStrings[] =
 //
 //*****************************************************************************
 #define NUM_FRESULT_CODES (sizeof(g_sFresultStrings) / sizeof(tFresultString))
+
+// This function is used to resolve relative and absolute paths
+const char* resolveRelativeAbsolutePath(const char *cwd,
+    const char *PathToResolve){
+    char * finalPath =  malloc(strlen(cwd) + strlen(PathToResolve) + 1);
+
+    // When the path to resolve starts with '/' we are dealing with an absolute
+    // path
+    if (*PathToResolve == '/'){
+        // Increment the PathToResolve pointer to remove the first '/' because
+        // the cwd already has one.
+        PathToResolve += 1;
+        // Copy the cwd and concatenate path to resolve
+        strcpy(finalPath, cwd);
+        strcat(finalPath, PathToResolve);
+        return (const char*)finalPath;
+    } else if (strlen(cwd) == 1){
+        // This means we are at the root
+        if(PathToResolve[0] == '.' && PathToResolve[1] == '.')
+            // When we are already at the root and we receive a path trying to
+            // go beyond the root, we return null
+            //TODO: verify this is an appropriate response.
+            *finalPath = '\0';
+    } else {
+        strcpy(finalPath, cwd);
+        // This variable points to the end of the string from the "finalPath"
+        // variable.
+        char * EndOfPath = (finalPath + (strlen(cwd) - 2));
+        if ((PathToResolve[0] == '.') &&
+            (PathToResolve[1] == '.') &&
+            (strlen(PathToResolve) == 2)){
+            // This means we need to move up one directory
+            while (*EndOfPath != '/'){
+                EndOfPath--;
+            }
+            EndOfPath[1] = '\0';
+            return finalPath;
+        }
+        unsigned int i = 0;
+        unsigned int cwdCharsLeft = strlen(cwd);
+        while((i < strlen(PathToResolve)) && (cwdCharsLeft > 0)){
+            if((PathToResolve[0] == '.') &&
+               (PathToResolve[1] == '.') &&
+               (PathToResolve[2] == '/')){
+                    // Move up one directory on the current working dir
+                    while (*EndOfPath != '/'){
+                        EndOfPath--;
+                        cwdCharsLeft--;
+                    }
+                    EndOfPath[1] = '\0';
+                    EndOfPath--;
+                    // Add 3 to advance beyond the '/' we encountered.
+                    PathToResolve += 3;
+                    i += 3;
+            } else {
+                strcat(finalPath, PathToResolve);
+                return finalPath;
+            }
+        }
+    }
+    // If we break out of the while loop it means the path is not valid so
+    // return null
+    *finalPath = '\0';
+    return (const char *)finalPath;
+}
 
 //*****************************************************************************
 //

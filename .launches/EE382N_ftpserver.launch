@@ -5,7 +5,7 @@
 <stringAttribute key="com.ti.ccstudio.debug.debugModel.ATTR_PROGRAM.Stellaris In-Circuit Debug Interface/CORTEX_M3_0" value="${build_artifact:EE382N_ftpserver}"/>
 <stringAttribute key="com.ti.ccstudio.debug.debugModel.ATTR_PROJECT.Stellaris In-Circuit Debug Interface/CORTEX_M3_0" value="EE382N_ftpserver"/>
 <stringAttribute key="com.ti.ccstudio.debug.debugModel.ATTR_TARGET_CONFIG" value="${target_config_active_default:EE382N_ftpserver}"/>
-<stringAttribute key="com.ti.ccstudio.debug.debugModel.MRU_PROGRAM.Stellaris In-Circuit Debug Interface/CORTEX_M3_0" value="C:/Users\Clayton\Projects\ut\ep\labs\EE382N_ftpserver\Debug\EE382N_ftpserver.out"/>
+<stringAttribute key="com.ti.ccstudio.debug.debugModel.MRU_PROGRAM.Stellaris In-Circuit Debug Interface/CORTEX_M3_0" value="C:/ti\MastersProjects\EE382N_ftpserver\Debug\EE382N_ftpserver.out"/>
 <mapAttribute key="com.ti.ccstudio.debug.ui.displayFormats">
 <mapEntry key="Stellaris In-Circuit Debug Interface/CORTEX_M3_0@##separator##@0" value="8-Bit UnSigned Int"/>
 </mapAttribute>
