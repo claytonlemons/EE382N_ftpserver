@@ -178,7 +178,23 @@ void executeCommand_PASV
     FtpPiStruct_t *PI_Struct
 )
 {
-    formatFTPReply(FTPREPLYID_502, reply);
+	PI_Struct->hostPort.hostNumber = PI_Struct->MessageConnection->local_ip;
+	PI_Struct->hostPort.portNumber = 5000; // @TODO: We'll need to fix this so multiple connections can use different ports
+
+	uint8_t *hostNumberAsByteArray = (uint8_t *) &(PI_Struct->hostPort.hostNumber.addr);
+	uint8_t *portNumberAsByteArray = (uint8_t *) &(PI_Struct->hostPort.portNumber);
+
+    formatFTPReply
+	(
+		FTPREPLYID_227,
+    	reply,
+		hostNumberAsByteArray[0],
+		hostNumberAsByteArray[1],
+		hostNumberAsByteArray[2],
+		hostNumberAsByteArray[3],
+		portNumberAsByteArray[1],
+		portNumberAsByteArray[0]
+	);
 }
 
 void executeCommand_TYPE
@@ -257,9 +273,8 @@ void executeCommand_RETR
     	return;
     }
 
-    PI_Struct->DataStructure.DtpState = STATE_SEND_FILE;
+    PI_Struct->DataStructure.dtpState = STATE_SEND_FILE;
     PI_Struct->DataStructure.bytesRemaining = PI_Struct->DataStructure.file.fsize;
-    PI_Struct->DataStructure.sType = FromFile;
 
     formatFTPReply(FTPREPLYID_150, reply, fileName.buffer);
     if (ftp_OpenDataConnection(PI_Struct) != 0) {
@@ -290,9 +305,8 @@ void executeCommand_STOR
     	return;
     }
 
-    PI_Struct->DataStructure.DtpState = RX_FILE;
+    PI_Struct->DataStructure.dtpState = STATE_RECEIVE_FILE;
     PI_Struct->DataStructure.bytesRemaining = 0;
-    PI_Struct->DataStructure.sType = FromFile;
 
     formatFTPReply(FTPREPLYID_150, reply, fileName.buffer);
     if (ftp_OpenDataConnection(PI_Struct) != 0) {
@@ -412,11 +426,12 @@ void executeCommand_PWD
     formatFTPReply(FTPREPLYID_502, reply);
 }
 
-void executeCommand_LIST
+void _executeListingCommand
 (
-    const char *arguments,
-    DynamicString *reply,
-    FtpPiStruct_t *PI_Struct
+	const char *arguments,
+	bool detailedListing,
+	DynamicString *reply,
+	FtpPiStruct_t *PI_Struct
 )
 {
 	char fileNameBuff[64];
@@ -425,9 +440,11 @@ void executeCommand_LIST
     // Get the file name from the arguments
     FTP_PARSE(PrintableString(arguments, &fileName));
 
-    if (getFileInfo("/", fileName.buffer, &PI_Struct->DataStructure.fileInfo) == FR_OK)
+
+    if (getFileInfo(NULL, fileName.buffer, &PI_Struct->DataStructure.fileInfo) == FR_OK)
     {
-    	PI_Struct->DataStructure.DtpState = STATE_SEND_FILE;
+    	PI_Struct->DataStructure.dtpState = STATE_SEND_LISTING;
+    	PI_Struct->DataStructure.detailedListing = detailedListing;
 		if (ftp_OpenDataConnection(PI_Struct) != 0)
 		{
 			// @TODO: An error occured. Reply with a message
@@ -446,6 +463,17 @@ void executeCommand_LIST
     finalizeDynamicString(&fileName);
 }
 
+void executeCommand_LIST
+(
+    const char *arguments,
+    DynamicString *reply,
+    FtpPiStruct_t *PI_Struct
+)
+{
+	bool detailedListing = true;
+	_executeListingCommand(arguments, detailedListing, reply, PI_Struct);
+}
+
 void executeCommand_NLST
 (
     const char *arguments,
@@ -453,7 +481,8 @@ void executeCommand_NLST
     FtpPiStruct_t *PI_Struct
 )
 {
-    formatFTPReply(FTPREPLYID_502, reply);
+	bool detailedListing = false;
+	_executeListingCommand(arguments, detailedListing, reply, PI_Struct);
 }
 
 void executeCommand_SITE

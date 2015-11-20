@@ -1296,10 +1296,16 @@ FRESULT f_stat (
 
     res = trace_path(&dirobj, fn, path, &dir);    /* Trace the file path */
     if (res == FR_OK) {                            /* Trace completed */
-        if (dir)    /* Found an object */
+        if (dir)     /* Found an object */
+        {
             get_fileinfo(finfo, dir);
+        }
         else        /* It is root dir */
-            res = FR_INVALID_NAME;
+        {
+        	finfo->fattrib = AM_DIR;
+        	strncpy(finfo->fname, "/", sizeof(finfo->fname));
+            res = FR_OK;
+        }
     }
 
     return res;

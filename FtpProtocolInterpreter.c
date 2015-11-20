@@ -107,7 +107,7 @@ static err_t ftp_RxData(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t er
     // the client. We proceed to close the connection
     if (err == ERR_OK && p == NULL) {
         PI_Struct->PresState = READY;
-        PI_Struct->DataStructure.DtpState = DATA_CLOSED;
+        PI_Struct->DataStructure.dtpState = DATA_CLOSED;
         closeFile(&PI_Struct->DataStructure.file);
         ftp_CloseDataConnection(PI_Struct);
 
@@ -150,45 +150,58 @@ static err_t ftp_SendData(struct tcp_pcb *pcb, void *data, size_t length)
 	return err;
 }
 
-// 8.3 filename format + 3 bytes for EOL and NULL :)
-#define FILE_INFO_BUFFER_SIZE (8 + 1 + 3 + 3)
+static err_t ftp_SendFileListing(struct tcp_pcb *pcb, FtpPiStruct_t *PI_Struct)
+{
+	FILINFO * fileInfo = &PI_Struct->DataStructure.fileInfo;
+
+	if (PI_Struct->DataStructure.detailedListing)
+	{
+		snprintf
+		(
+			PI_Struct->DataStructure.outputBuffer,
+			sizeof(PI_Struct->DataStructure.outputBuffer),
+			"%c%c%c%c%c %u/%02u/%02u %02u:%02u %9u  %s\r\n",
+			(fileInfo->fattrib & AM_DIR) ? 'D' : '-',
+			(fileInfo->fattrib & AM_RDO) ? 'R' : '-',
+			(fileInfo->fattrib & AM_HID) ? 'H' : '-',
+			(fileInfo->fattrib & AM_SYS) ? 'S' : '-',
+			(fileInfo->fattrib & AM_ARC) ? 'A' : '-',
+			(fileInfo->fdate >> 9) + 1980,
+			(fileInfo->fdate >> 5) & 15,
+			 fileInfo->fdate & 31,
+			(fileInfo->ftime >> 11),
+			(fileInfo->ftime >> 5) & 63,
+			 fileInfo->fsize,
+			 fileInfo->fname
+		);
+	}
+	else
+	{
+		snprintf
+		(
+			PI_Struct->DataStructure.outputBuffer,
+			sizeof(PI_Struct->DataStructure.outputBuffer),
+			"%s\r\n",
+			fileInfo->fname
+		);
+	}
+
+	fileInfo->fname[0] = '\0'; // This will let the ftp_DataSent function know that we are done sending the listing.
+
+	return ftp_SendData
+	(
+		pcb,
+		PI_Struct->DataStructure.outputBuffer,
+		strlen(PI_Struct->DataStructure.outputBuffer)
+	);
+}
 
 static err_t ftp_SendDirectoryListing(struct tcp_pcb *pcb, FtpPiStruct_t *PI_Struct)
 {
-	FILINFO fileInfo;
-	f_readdir(&PI_Struct->DataStructure.directory, &fileInfo);
+	ftp_SendFileListing(pcb, PI_Struct);
 
-	if (fileInfo.fname[0] == NULL)
-	{
-		// @TODO: Refactor this code with the code in ftp_RxData
-        PI_Struct->PresState = READY;
-        PI_Struct->DataStructure.DtpState = DATA_CLOSED;
-        ftp_CloseDataConnection(PI_Struct);
-
-        // Send msg226 when the operation completes.
-        char StringBuffer[kReplyBufferLength];
-        DynamicString reply;
-        initializeDynamicString(&reply, StringBuffer, sizeof(StringBuffer));
-
-        formatFTPReply(FTPREPLYID_226, &reply);
-        ftp_SendMsg((PI_Struct->MessageConnection), reply.buffer, strlen(reply.buffer));
-
-        finalizeDynamicString(&reply);
-
-        return ERR_OK;
-	}
-
-	char fileInfoBuffer[FILE_INFO_BUFFER_SIZE];
-
-	snprintf
-	(
-		fileInfoBuffer,
-		FILE_INFO_BUFFER_SIZE,
-		"%s\r\n",
-		fileInfo.fname
-	);
-
-	ftp_SendData(pcb, fileInfoBuffer, FILE_INFO_BUFFER_SIZE);
+	FILINFO * fileInfo = &PI_Struct->DataStructure.fileInfo;
+	f_readdir(&PI_Struct->DataStructure.directory, fileInfo);
 
 	return ERR_OK;
 }
@@ -197,17 +210,21 @@ static err_t ftp_SendListing(struct tcp_pcb *pcb, FtpPiStruct_t *PI_Struct)
 {
 	if (PI_Struct->DataStructure.fileInfo.fattrib & AM_DIR)
 	{
-		if (openDirectory("/", PI_Struct->DataStructure.fileInfo.fname, &PI_Struct->DataStructure.directory) != FR_OK)
+		// @TODO: Update to use CWD
+		if (openDirectory(NULL, PI_Struct->DataStructure.fileInfo.fname, &PI_Struct->DataStructure.directory) != FR_OK)
 		{
 			UARTPrintLn("Error: unable to open directory for sending listing!");
+			return ERR_ABRT;
 		}
+
+		// Note: we are now reusing the fileinfo object to print each directory entry
+		f_readdir(&PI_Struct->DataStructure.directory, &PI_Struct->DataStructure.fileInfo);
 
 		return ftp_SendDirectoryListing(pcb, PI_Struct);
 	}
 	else
 	{
-		// @TODO: Handle sending a listing for a single file here
-		return ERR_OK;
+		return ftp_SendFileListing(pcb, PI_Struct);
 	}
 }
 
@@ -244,15 +261,30 @@ static err_t ftp_DataSent(void *arg, struct tcp_pcb *pcb, u16_t len){
     FtpPiStruct_t *PI_Struct = arg;
     UARTPrint("ftp_DataSent Called!\r\n");
 
-    switch (PI_Struct->DataStructure.DtpState) {
+    switch (PI_Struct->DataStructure.dtpState) {
         case STATE_SEND_LISTING:
-        	if (PI_Struct->DataStructure.fileInfo.fattrib & AM_DIR)
+        	if (PI_Struct->DataStructure.fileInfo.fname[0] != NULL) // There is another directory entry to send
         	{
         		ftp_SendDirectoryListing(pcb, PI_Struct);
         	}
-        	else
+        	else // We either just sent a file listing, or we reached the last directory entry
         	{
-        		// @TODO: Handle file stuff
+        		// @TODO: Refactor this code with the code in ftp_RxData
+                PI_Struct->PresState = READY;
+                PI_Struct->DataStructure.dtpState = DATA_CLOSED;
+                ftp_CloseDataConnection(PI_Struct);
+
+                // Send msg226 when the operation completes.
+                char StringBuffer[kReplyBufferLength];
+                DynamicString reply;
+                initializeDynamicString(&reply, StringBuffer, sizeof(StringBuffer));
+
+                formatFTPReply(FTPREPLYID_226, &reply);
+                ftp_SendMsg((PI_Struct->MessageConnection), reply.buffer, strlen(reply.buffer));
+
+                finalizeDynamicString(&reply);
+
+                return ERR_OK;
         	}
             break;
         case STATE_SEND_FILE:
@@ -264,7 +296,7 @@ static err_t ftp_DataSent(void *arg, struct tcp_pcb *pcb, u16_t len){
         	{
         		// @TODO: Refactor this code with the code in ftp_RxData
                 PI_Struct->PresState = READY;
-                PI_Struct->DataStructure.DtpState = DATA_CLOSED;
+                PI_Struct->DataStructure.dtpState = DATA_CLOSED;
                 closeFile(&PI_Struct->DataStructure.file);
                 ftp_CloseDataConnection(PI_Struct);
 
@@ -305,7 +337,7 @@ static err_t ftp_DataConnected(void *arg, struct tcp_pcb *pcb, err_t err){
     // TCP will call ftp_DataSent it completes a frame transfer
     tcp_sent(pcb, ftp_DataSent);
 
-    switch (PI_Struct->DataStructure.DtpState) {
+    switch (PI_Struct->DataStructure.dtpState) {
         case STATE_SEND_LISTING:
         	return ftp_SendListing(pcb, PI_Struct);
 
@@ -431,7 +463,7 @@ static err_t ftp_CmdSent(void *arg, struct tcp_pcb *pcb, u16_t len)
 
     // Close the message connection when we receive the quit command
     if((PI_Struct->PresState == QUIT ) &&
-       (PI_Struct->DataStructure.DtpState == DATA_CLOSED)){
+       (PI_Struct->DataStructure.dtpState == DATA_CLOSED)){
         ftp_CloseMessageConnection(PI_Struct);
     }
 
