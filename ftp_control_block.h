@@ -92,6 +92,7 @@ typedef struct FtpPiStruct_t{
     TypeCode typeCode;
     StructureCode structCode;
     ModeCode modeCode;
+    char CWD[128];
 } FtpPiStruct_t;
 
 

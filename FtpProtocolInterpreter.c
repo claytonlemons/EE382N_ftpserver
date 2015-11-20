@@ -515,6 +515,8 @@ static err_t ftp_Accept(void *arg, struct tcp_pcb *pcb, err_t err)
     PI_Structure->typeCode = TYPECODE_A;
     PI_Structure->structCode = STRUCTURECODE_F;
     PI_Structure->modeCode = MODECODE_S;
+    // Initialize the CWD to the root.
+    snprintf(PI_Structure->CWD, sizeof(PI_Structure->CWD), "/");
     tcp_arg(pcb, PI_Structure);
 
     // Tell TCP that we wish to be informed of incoming data by a call

@@ -115,9 +115,10 @@ const char* resolveRelativeAbsolutePath(const char *cwd,
         // This means we are at the root
         if(PathToResolve[0] == '.' && PathToResolve[1] == '.')
             // When we are already at the root and we receive a path trying to
-            // go beyond the root, we return null
-            //TODO: verify this is an appropriate response.
-            *finalPath = '\0';
+            // go beyond the root, we return the root.
+            *finalPath = '/';
+            finalPath[1] = '\0';
+            return finalPath;
     } else {
         strcpy(finalPath, cwd);
         // This variable points to the end of the string from the "finalPath"

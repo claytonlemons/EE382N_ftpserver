@@ -104,7 +104,23 @@ void executeCommand_CWD
     FtpPiStruct_t *PI_Struct
 )
 {
-    formatFTPReply(FTPREPLYID_502, reply);
+	UARTPrintLn("CWD CMD Executed");
+    const char * NewDir;
+    char Buffer[64];
+    DynamicString ReceivedDir;
+    initializeDynamicString(&ReceivedDir, Buffer, sizeof(Buffer));
+
+    // Get the path from the arguments
+    FTP_PARSE(String(arguments, &ReceivedDir));
+    NewDir = resolveRelativeAbsolutePath(PI_Struct->CWD, ReceivedDir.buffer);
+    const char * Debug = NewDir;
+    UARTPrintLn(Debug);
+    if(openDirectory(PI_Struct->CWD, NewDir, &PI_Struct->DataStructure.directory) == FR_OK){
+        strcpy(PI_Struct->CWD, NewDir);
+        formatFTPReply(FTPREPLYID_250, reply);
+    } else {
+        formatFTPReply(FTPREPLYID_501, reply);
+    }
 }
 
 void executeCommand_CDUP
@@ -114,7 +130,10 @@ void executeCommand_CDUP
     FtpPiStruct_t *PI_Struct
 )
 {
-    formatFTPReply(FTPREPLYID_502, reply);
+	UARTPrintLn("CDUP CMD Executed");
+	strcpy(PI_Struct->CWD, resolveRelativeAbsolutePath(PI_Struct->CWD, ".."));
+	UARTPrintLn(PI_Struct->CWD);
+    formatFTPReply(FTPREPLYID_200, reply);
 }
 
 void executeCommand_SMNT
@@ -423,7 +442,7 @@ void executeCommand_PWD
     FtpPiStruct_t *PI_Struct
 )
 {
-    formatFTPReply(FTPREPLYID_502, reply);
+    formatFTPReply(FTPREPLYID_257, reply, PI_Struct->CWD);
 }
 
 void _executeListingCommand
@@ -482,6 +501,7 @@ void executeCommand_NLST
 )
 {
 	bool detailedListing = false;
+	UARTPrintLn("NLST CMD Executed");
 	_executeListingCommand(arguments, detailedListing, reply, PI_Struct);
 }
 
