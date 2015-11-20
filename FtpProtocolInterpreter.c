@@ -210,8 +210,7 @@ static err_t ftp_SendListing(struct tcp_pcb *pcb, FtpPiStruct_t *PI_Struct)
 {
 	if (PI_Struct->DataStructure.fileInfo.fattrib & AM_DIR)
 	{
-		// @TODO: Update to use CWD
-		if (openDirectory(NULL, PI_Struct->DataStructure.fileInfo.fname, &PI_Struct->DataStructure.directory) != FR_OK)
+		if (openDirectory(PI_Struct->CWD, PI_Struct->DataStructure.fileInfo.fname, &PI_Struct->DataStructure.directory) != FR_OK)
 		{
 			UARTPrintLn("Error: unable to open directory for sending listing!");
 			return ERR_ABRT;
