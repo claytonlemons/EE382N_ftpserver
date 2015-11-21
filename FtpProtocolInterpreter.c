@@ -33,6 +33,13 @@ err_t ftp_CloseMessageConnection (FtpPiStruct_t *PI_Struct){
     return ERR_OK;
 }
 
+// This method is used to print debug error messages (err_t)
+void PrintErrorNum(err_t err){
+    char ErrorMessage[20];
+    sprintf(ErrorMessage, "Error (err_t): %d", err);
+    UARTPrintLn(ErrorMessage);
+}
+
 // This method is used to transmit messages to the FTP client.
 // The messages are sent through the TCP pcb module using the
 // tcp_write.
@@ -49,6 +56,7 @@ static void ftp_SendMsg(struct tcp_pcb *pcb, const char *msg, size_t length)
 	err = tcp_write(pcb, msg, length, TCP_WRITE_FLAG_COPY);
     if (err != ERR_OK) {
     	UARTPrintLn("ftp_SendMsg writeError!");
+        PrintErrorNum(err);
         return;
     }
 }
@@ -145,6 +153,7 @@ static err_t ftp_SendData(struct tcp_pcb *pcb, void *data, size_t length)
 	if (ERR_IS_FATAL(err))
 	{
 		UARTPrintLn("Encountered fatal error during ftp_SendData!");
+        PrintErrorNum(err);
 	}
 
 	return err;
@@ -318,6 +327,7 @@ static err_t ftp_DataSent(void *arg, struct tcp_pcb *pcb, u16_t len){
 	if (ERR_IS_FATAL(err))
 	{
 		UARTPrintLn("Encountered fatal error during ftp_DataSent!");
+        PrintErrorNum(err);
 	}
 
     return err;
@@ -348,6 +358,14 @@ static err_t ftp_DataConnected(void *arg, struct tcp_pcb *pcb, err_t err){
     }
 }
 
+// This method gets called by the TCP module when an error occurs.
+static void ftp_DataConnError(void *arg, err_t err)
+{
+    UARTPrintLn("ftp_DataConnError Called!");
+    // FtpPiStruct_t *PI_Struct = arg;
+    PrintErrorNum(err);
+}
+
 // This method is used to open a TCP data connection.
 err_t ftp_OpenDataConnection(FtpPiStruct_t *PI_Struct){
 
@@ -359,6 +377,9 @@ err_t ftp_OpenDataConnection(FtpPiStruct_t *PI_Struct){
         &PI_Struct->MessageConnection->local_ip, 20);
     // Pass the PI_Struct to TCP
     tcp_arg(PI_Struct->DataConnection, PI_Struct);
+    // Used to specify the function that should be called when a fatal error
+    // has occurred on the connection.
+    tcp_err(PI_Struct->DataConnection, ftp_DataConnError);
     // When the client has not programmed any Address/Port we will use
     // the address of the client and the default port 20
     if (PI_Struct->hostPort.portNumber == 0){
@@ -480,11 +501,11 @@ static err_t ftp_Poll(void *arg, struct tcp_pcb *pcb)
 }
 
 // This method gets called by the TCP module when an error occurs.
-// TODO:We need an ftp__err function to handle errors.
-static void ftp_PiError(void *arg, err_t err)
+static void ftp_MsgConnError(void *arg, err_t err)
 {
-	//  FtpPiStruct_t *PI_Struct = arg;
-	UARTPrintLn("ftp_PiError Called!");
+    UARTPrintLn("ftp_MsgConnError Called!");
+    // FtpPiStruct_t *PI_Struct = arg;
+    PrintErrorNum(err);
 }
 
 
@@ -526,7 +547,7 @@ static err_t ftp_Accept(void *arg, struct tcp_pcb *pcb, err_t err)
 
     // Used to specify the function that should be called when a fatal error
     // has occurred on the connection.
-    tcp_err(pcb, ftp_PiError);
+    tcp_err(pcb, ftp_MsgConnError);
 
 
     // Tell TCP that we wish to be informed when a command has been successfully
