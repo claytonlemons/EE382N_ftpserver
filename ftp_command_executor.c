@@ -45,20 +45,27 @@ void executeCommand_USER
 {
     burnWhitespace(arguments);
 
+    UARTPrintLn("USER CMD Executed");
     char usernameBuffer[64];
     DynamicString username;
     initializeDynamicString(&username, usernameBuffer, sizeof(usernameBuffer));
 
     // Get the username from the arguments
     FTP_PARSE(String(arguments, &username));
-    //TODO: compare username against database. For now every user is welcome
+    // The expected username is "Anonymous\3". The Windows FTP server sends a
+    // '\3' after the string. Because of this, we add it to the string
+    // comparison
+    if (strcmp(username.buffer, "anonymous\3") == 0){
+        PI_Struct->PresState = WAIT_FOR_PASSWORD;
+        // Return reply 331 to let the user know everything is correct
+        formatFTPReply(FTPREPLYID_331, reply);
+    } else {
+        // Return reply 530 to let the user know they sent the wrong username
+        formatFTPReply(FTPREPLYID_530, reply);
+    }
 
     finalizeDynamicString(&username);
 
-    PI_Struct->PresState = WAIT_FOR_PASSWORD;
-    // Return reply 331 to let the user know everything is correct
-    formatFTPReply(FTPREPLYID_331, reply);
-    UARTPrintLn("USER CMD Executed");
 
 }
 
@@ -76,8 +83,8 @@ void executeCommand_PASS
     initializeDynamicString(&password, passwordBuffer, sizeof(passwordBuffer));
 
     // Get the password from the arguments
+    // Any password works
     FTP_PARSE(String(arguments, &password));
-    //TODO: verify user's password against database. For now any password works
 
     finalizeDynamicString(&password);
 

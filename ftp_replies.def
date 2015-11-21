@@ -31,7 +31,7 @@ FTP_REPLY_XMACRO(501, "501 Syntax error in parameters or arguments.\r\n")
 FTP_REPLY_XMACRO(502, "502 Command not implemented.\r\n")
 FTP_REPLY_XMACRO(503, "Bad sequence of commands.")
 FTP_REPLY_XMACRO(504, "504 Command not implemented for that parameter. \r\n")
-FTP_REPLY_XMACRO(530, "Not logged in.")
+FTP_REPLY_XMACRO(530, "530 Not logged in. Unknown username \r\n")
 FTP_REPLY_XMACRO(532, "Need account for storing files.")
 FTP_REPLY_XMACRO(550, "550 Requested action not taken. File or directory unavailable.\r\n") // for example, file not found, no access
 FTP_REPLY_XMACRO(551, "Requested action aborted: page type unknown.")
