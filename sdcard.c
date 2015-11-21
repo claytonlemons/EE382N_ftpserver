@@ -104,21 +104,19 @@ const char* resolveRelativeAbsolutePath(const char *cwd,
     // When the path to resolve starts with '/' we are dealing with an absolute
     // path
     if (*PathToResolve == '/'){
-        // Increment the PathToResolve pointer to remove the first '/' because
-        // the cwd already has one.
-        PathToResolve += 1;
-        // Copy the cwd and concatenate path to resolve
-        strcpy(finalPath, cwd);
-        strcat(finalPath, PathToResolve);
+        // Copy the path to resolve
+        strcpy(finalPath, PathToResolve);
         return (const char*)finalPath;
     } else if (strlen(cwd) == 1){
         // This means we are at the root
         if(PathToResolve[0] == '.' && PathToResolve[1] == '.')
+        {
             // When we are already at the root and we receive a path trying to
             // go beyond the root, we return the root.
             *finalPath = '/';
             finalPath[1] = '\0';
             return finalPath;
+        }
     } else {
         strcpy(finalPath, cwd);
         // This variable points to the end of the string from the "finalPath"
@@ -137,6 +135,11 @@ const char* resolveRelativeAbsolutePath(const char *cwd,
         unsigned int i = 0;
         unsigned int cwdCharsLeft = strlen(cwd);
         while((i < strlen(PathToResolve)) && (cwdCharsLeft > 0)){
+        	if((PathToResolve[0] == '.') &&
+        	   (PathToResolve[1] == '/')){
+        		PathToResolve += 2;
+        	}
+
             if((PathToResolve[0] == '.') &&
                (PathToResolve[1] == '.') &&
                (PathToResolve[2] == '/')){
@@ -150,11 +153,10 @@ const char* resolveRelativeAbsolutePath(const char *cwd,
                     // Add 3 to advance beyond the '/' we encountered.
                     PathToResolve += 3;
                     i += 3;
-            } else {
-                strcat(finalPath, PathToResolve);
-                return finalPath;
             }
         }
+        strcat(finalPath, PathToResolve);
+        return finalPath;
     }
     // If we break out of the while loop it means the path is not valid so
     // return null
@@ -224,18 +226,12 @@ FRESULT getFileInfo(const char *cwd, const char *filepath, FILINFO *fileInfo)
 {
 	FRESULT fresult;
 
-	// @TODO: Refactor this code into a function that properly handles relative and absolute paths
-	char *finalPath = malloc(strlen(cwd) + strlen(filepath) + 1);
-
-	// @TODO: add this back in once we can handle absolute paths
-	//strcpy(finalPath, cwd);
-	//strcat(finalPath, filepath);
-	strcpy(finalPath, filepath);
+	const char *finalPath = resolveRelativeAbsolutePath(cwd, filepath);
 
 	CHECK_FRESULT(f_stat(finalPath, fileInfo));
 
 ERROR:
-	free(finalPath);
+	free((void *) finalPath);
 	return fresult;
 }
 
@@ -243,18 +239,12 @@ FRESULT openFile(const char *cwd, const char *filepath, FIL *file, BYTE mode)
 {
 	FRESULT fresult;
 
-	// @TODO: Refactor this code into a function that properly handles relative and absolute paths
-	char *finalPath = malloc(strlen(cwd) + strlen(filepath) + 1);
-
-	// @TODO: add this back in once we can handle absolute paths
-	//strcpy(finalPath, cwd);
-	//strcat(finalPath, filepath);
-	strcpy(finalPath, filepath);
+	const char *finalPath = resolveRelativeAbsolutePath(cwd, filepath);
 
 	CHECK_FRESULT(f_open(file, finalPath, mode));
 
 ERROR:
-	free(finalPath);
+	free((void *) finalPath);
 	return fresult;
 }
 
@@ -262,18 +252,12 @@ FRESULT openDirectory(const char *cwd, const char *directoryPath, DIR *directory
 {
 	FRESULT fresult;
 
-	// @TODO: Refactor this code into a function that properly handles relative and absolute paths
-	char *finalPath = malloc(strlen(cwd) + strlen(directoryPath) + 1);
-
-	// @TODO: add this back in once we can handle absolute paths
-	//strcpy(finalPath, cwd);
-	//strcat(finalPath, directoryPath);
-	strcpy(finalPath, directoryPath);
+	const char *finalPath = resolveRelativeAbsolutePath(cwd, directoryPath);
 
 	CHECK_FRESULT(f_opendir(directory, finalPath));
 
 ERROR:
-	free(finalPath);
+	free((void *) finalPath);
 	return fresult;
 }
 
@@ -309,7 +293,7 @@ ERROR:
 
 
 // Open directoryPath and show its contents
-FRESULT readDirectoryContents(char *directoryPath, DynamicString *directoryContents, size_t *totalBytesWritten)
+FRESULT readDirectoryContents(const char *directoryPath, DynamicString *directoryContents, size_t *totalBytesWritten)
 {
     FRESULT fresult = FR_OK;
 

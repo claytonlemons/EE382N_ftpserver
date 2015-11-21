@@ -111,12 +111,12 @@ void executeCommand_CWD
     initializeDynamicString(&ReceivedDir, Buffer, sizeof(Buffer));
 
     // Get the path from the arguments
-    FTP_PARSE(String(arguments, &ReceivedDir));
+    FTP_PARSE(PrintableString(arguments, &ReceivedDir));
     NewDir = resolveRelativeAbsolutePath(PI_Struct->CWD, ReceivedDir.buffer);
     const char * Debug = NewDir;
     UARTPrintLn(Debug);
     if(openDirectory(PI_Struct->CWD, NewDir, &PI_Struct->DataStructure.directory) == FR_OK){
-        strcpy(PI_Struct->CWD, NewDir);
+        strncpy(PI_Struct->CWD, NewDir, sizeof(PI_Struct->CWD));
         formatFTPReply(FTPREPLYID_250, reply);
     } else {
         formatFTPReply(FTPREPLYID_501, reply);
@@ -197,8 +197,10 @@ void executeCommand_PASV
     FtpPiStruct_t *PI_Struct
 )
 {
+	static uint16_t portNumber = 5000;
+
 	PI_Struct->hostPort.hostNumber = PI_Struct->MessageConnection->local_ip;
-	PI_Struct->hostPort.portNumber = 5000; // @TODO: We'll need to fix this so multiple connections can use different ports
+	PI_Struct->hostPort.portNumber = portNumber++; // @TODO: We'll need to make this more robust for multiple connections
 
 	uint8_t *hostNumberAsByteArray = (uint8_t *) &(PI_Struct->hostPort.hostNumber.addr);
 	uint8_t *portNumberAsByteArray = (uint8_t *) &(PI_Struct->hostPort.portNumber);
@@ -285,7 +287,7 @@ void executeCommand_RETR
     // Get the file name from the arguments
     FTP_PARSE(PrintableString(arguments, &fileName));
 
-    FRESULT fresult = openFile("/", fileName.buffer, &PI_Struct->DataStructure.file, FA_READ);
+    FRESULT fresult = openFile(PI_Struct->CWD, fileName.buffer, &PI_Struct->DataStructure.file, FA_READ);
     if (fresult != FR_OK)
     {
     	formatFTPReply(FTPREPLYID_550, reply);
@@ -317,7 +319,7 @@ void executeCommand_STOR
     // Get the file name from the arguments
     FTP_PARSE(PrintableString(arguments, &fileName));
 
-    FRESULT fresult = openFile("/", fileName.buffer, &PI_Struct->DataStructure.file, FA_WRITE | FA_CREATE_ALWAYS); // @TODO: use the cwd from the PI_Struct
+    FRESULT fresult = openFile(PI_Struct->CWD, fileName.buffer, &PI_Struct->DataStructure.file, FA_WRITE | FA_CREATE_ALWAYS); // @TODO: use the cwd from the PI_Struct
     if (fresult != FR_OK)
     {
     	formatFTPReply(FTPREPLYID_550, reply);
@@ -457,10 +459,13 @@ void _executeListingCommand
     DynamicString fileName;
     initializeDynamicString(&fileName, fileNameBuff, sizeof(fileNameBuff));
     // Get the file name from the arguments
-    FTP_PARSE(PrintableString(arguments, &fileName));
+    if (parsePrintableString(arguments, &fileName) == NULL)
+    {
+    	fileNameBuff[0] = '\0';
+    }
 
 
-    if (getFileInfo(NULL, fileName.buffer, &PI_Struct->DataStructure.fileInfo) == FR_OK)
+    if (getFileInfo(PI_Struct->CWD, fileName.buffer, &PI_Struct->DataStructure.fileInfo) == FR_OK)
     {
     	PI_Struct->DataStructure.dtpState = STATE_SEND_LISTING;
     	PI_Struct->DataStructure.detailedListing = detailedListing;
@@ -535,20 +540,33 @@ void executeCommand_STAT
 )
 {
     UARTPrintLn("Reading root dir...");
+
+    DynamicString path;
+    initializeDynamicString(&path, NULL, 0);
+    if (parsePrintableString(arguments, &path) == NULL)
+    {
+    	formatFTPReply(FTPREPLYID_211, reply, "All is well! Thanks for asking!");
+    	return;
+    }
+
+    const char *finalPath = resolveRelativeAbsolutePath(PI_Struct->CWD, path.buffer);
+    finalizeDynamicString(&path);
+
     DynamicString directoryContents;
     initializeDynamicString(&directoryContents, NULL, 0);
 
     size_t bytesWritten = 0;
-    readDirectoryContents("/", &directoryContents, &bytesWritten);
+    readDirectoryContents(finalPath, &directoryContents, &bytesWritten);
 
     resizeDynamicString(&directoryContents, bytesWritten + 1);
-    readDirectoryContents("/", &directoryContents, &bytesWritten);
+    readDirectoryContents(finalPath, &directoryContents, &bytesWritten);
 
     UARTPrintLn(directoryContents.buffer);
 
     formatFTPReply(FTPREPLYID_213, reply, directoryContents.buffer);
 
     finalizeDynamicString(&directoryContents);
+    free(finalPath);
 
     UARTPrintLn(reply->buffer);
 }

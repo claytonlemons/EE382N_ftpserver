@@ -20,6 +20,6 @@ FRESULT openFile(const char *cwd, const char *filepath, FIL *file, BYTE mode);
 FRESULT closeFile(FIL *file);
 FRESULT readFromFile(FIL *file, uint8_t *buffer, WORD bytesToRead, WORD *bytesRead);
 FRESULT writeToFile(FIL *file, const uint8_t *buffer, WORD bytesToWrite, WORD *bytesWritten);
-FRESULT readDirectoryContents(char *directoryPath, DynamicString *directoryContents, size_t *bytesWritten);
+FRESULT readDirectoryContents(const char *directoryPath, DynamicString *directoryContents, size_t *bytesWritten);
 const char* resolveRelativeAbsolutePath(const char *cwd,
     const char *PathToResolve);

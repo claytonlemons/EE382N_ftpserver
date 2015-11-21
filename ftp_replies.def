@@ -4,7 +4,7 @@ FTP_REPLY_XMACRO(125, "Data connection already open; transfer starting.")
 FTP_REPLY_XMACRO(150, "150 File status okay; about to open data connection for %s.\r\n")
 FTP_REPLY_XMACRO(200, "200 Command okay.\r\n")
 FTP_REPLY_XMACRO(202, "Command not implemented, superfluous at this site.")
-FTP_REPLY_XMACRO(211, "%s") // System status, or system help reply.
+FTP_REPLY_XMACRO(211, "211-BEGIN SYSTEM STAT\r\n%s211 END SYSTEM STAT\r\n") // System status, or system help reply.
 FTP_REPLY_XMACRO(212, "212-BEGIN DIRECTORY STAT\r\n%s212 END DIRECTORY STAT\r\n") // Directory status.
 FTP_REPLY_XMACRO(213, "213-BEGIN FILE STAT\r\n%s213 END FILE STAT\r\n") // File status.
 FTP_REPLY_XMACRO(214, "214-BEGIN HELP\r\n%s214 END HELP\r\n") // Help message. On how to use the server or the meaning of a particular non-standard command.  This reply is useful only to the human user.
