@@ -11,6 +11,8 @@
 #include "fatfs/src/diskio.h"
 #include "dynamic_string.h"
 
+#define MAX_PATH_LENGTH 255
+
 const char *fresultToString(FRESULT fresult);
 void FatFSTickHandler(void);
 FRESULT mountSDCard();
@@ -21,5 +23,7 @@ FRESULT closeFile(FIL *file);
 FRESULT readFromFile(FIL *file, uint8_t *buffer, WORD bytesToRead, WORD *bytesRead);
 FRESULT writeToFile(FIL *file, const uint8_t *buffer, WORD bytesToWrite, WORD *bytesWritten);
 FRESULT readDirectoryContents(const char *directoryPath, DynamicString *directoryContents, size_t *bytesWritten);
-const char* resolveRelativeAbsolutePath(const char *cwd,
-    const char *PathToResolve);
+
+typedef char Path[MAX_PATH_LENGTH + 1];
+
+bool resolveRelativeAbsolutePath(const Path basePath, const char *pathString, Path joinedPath);

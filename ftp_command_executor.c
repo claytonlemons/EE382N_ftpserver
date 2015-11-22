@@ -104,6 +104,17 @@ void executeCommand_ACCT
     formatFTPReply(FTPREPLYID_502, reply);
 }
 
+void _executeChangeDirectoryCommand
+(
+	Path newDir,
+    DynamicString *reply,
+    FtpPiStruct_t *PI_Struct
+)
+{
+
+
+}
+
 void executeCommand_CWD
 (
     const char *arguments,
@@ -112,20 +123,33 @@ void executeCommand_CWD
 )
 {
 	UARTPrintLn("CWD CMD Executed");
-    const char * NewDir;
-    char Buffer[64];
-    DynamicString ReceivedDir;
-    initializeDynamicString(&ReceivedDir, Buffer, sizeof(Buffer));
 
-    // Get the path from the arguments
-    FTP_PARSE(PrintableString(arguments, &ReceivedDir));
-    NewDir = resolveRelativeAbsolutePath(PI_Struct->CWD, ReceivedDir.buffer);
-    const char * Debug = NewDir;
-    UARTPrintLn(Debug);
-    if(openDirectory(PI_Struct->CWD, NewDir, &PI_Struct->DataStructure.directory) == FR_OK){
-        strncpy(PI_Struct->CWD, NewDir, sizeof(PI_Struct->CWD));
+	char parsedPathBuffer[MAX_PATH_LENGTH * 2 + 1];
+	DynamicString parsedPath;
+	initializeDynamicString(&parsedPath, parsedPathBuffer, sizeof(parsedPathBuffer));
+
+	// Get the path from the arguments
+	parsePrintableString(arguments, &parsedPath);
+
+	Path newDir;
+    bool joinPathSuccessful = resolveRelativeAbsolutePath(PI_Struct->CWD, parsedPath.buffer, newDir);
+    finalizeDynamicString(&parsedPath);
+
+    if (!joinPathSuccessful)
+    {
+    	formatFTPReply(FTPREPLYID_501, reply, "Argument Error: path is too long. Must be <= 255 characters.");
+    	return;
+    }
+
+    UARTPrintLn(newDir);
+
+    if (isDirectory(newDir))
+    {
+        strncpy(PI_Struct->CWD, newDir, MAX_PATH_LENGTH);
         formatFTPReply(FTPREPLYID_250, reply);
-    } else {
+    }
+    else
+    {
         formatFTPReply(FTPREPLYID_501, reply);
     }
 }
@@ -138,8 +162,11 @@ void executeCommand_CDUP
 )
 {
 	UARTPrintLn("CDUP CMD Executed");
-	strcpy(PI_Struct->CWD, resolveRelativeAbsolutePath(PI_Struct->CWD, ".."));
-	UARTPrintLn(PI_Struct->CWD);
+
+	Path newDir;
+	resolveRelativeAbsolutePath(PI_Struct->CWD, "..", newDir);
+
+	strncpy(PI_Struct->CWD, newDir, MAX_PATH_LENGTH);
     formatFTPReply(FTPREPLYID_200, reply);
 }
 
@@ -194,6 +221,8 @@ void executeCommand_PORT
     UARTPrintLn(debugPort.buffer);
     finalizeDynamicString(&debugPort);
 
+    PI_Struct->passive = false;
+
     formatFTPReply(FTPREPLYID_200, reply);
 }
 
@@ -211,6 +240,8 @@ void executeCommand_PASV
 
 	uint8_t *hostNumberAsByteArray = (uint8_t *) &(PI_Struct->hostPort.hostNumber.addr);
 	uint8_t *portNumberAsByteArray = (uint8_t *) &(PI_Struct->hostPort.portNumber);
+
+	PI_Struct->passive = true;
 
     formatFTPReply
 	(
@@ -326,7 +357,7 @@ void executeCommand_STOR
     // Get the file name from the arguments
     FTP_PARSE(PrintableString(arguments, &fileName));
 
-    FRESULT fresult = openFile(PI_Struct->CWD, fileName.buffer, &PI_Struct->DataStructure.file, FA_WRITE | FA_CREATE_ALWAYS); // @TODO: use the cwd from the PI_Struct
+    FRESULT fresult = openFile(PI_Struct->CWD, fileName.buffer, &PI_Struct->DataStructure.file, FA_WRITE | FA_CREATE_ALWAYS);
     if (fresult != FR_OK)
     {
     	formatFTPReply(FTPREPLYID_550, reply);
@@ -337,7 +368,8 @@ void executeCommand_STOR
     PI_Struct->DataStructure.bytesRemaining = 0;
 
     formatFTPReply(FTPREPLYID_150, reply, fileName.buffer);
-    if (ftp_OpenDataConnection(PI_Struct) != 0) {
+    if (ftp_OpenDataConnection(PI_Struct) != 0)
+    {
         // @TODO: An error occured. Reply with a message
         return;
     }
@@ -462,36 +494,47 @@ void _executeListingCommand
 	FtpPiStruct_t *PI_Struct
 )
 {
-	char fileNameBuff[64];
-    DynamicString fileName;
-    initializeDynamicString(&fileName, fileNameBuff, sizeof(fileNameBuff));
-    // Get the file name from the arguments
-    if (parsePrintableString(arguments, &fileName) == NULL)
+    char parsedPathBuffer[MAX_PATH_LENGTH * 2 + 1];
+    DynamicString parsedPath;
+    initializeDynamicString(&parsedPath, parsedPathBuffer, sizeof(parsedPathBuffer));
+
+    parsePrintableString(arguments, &parsedPath);
+
+    // Try to open the file
+    FRESULT fresult = getFileInfo(PI_Struct->CWD, parsedPath.buffer, &PI_Struct->DataStructure.fileInfo);
+
+    // If it opened successfully and it is a directory, open as a directory
+    if (fresult == FR_OK && PI_Struct->DataStructure.fileInfo.fattrib & AM_DIR)
     {
-    	fileNameBuff[0] = '\0';
+    	fresult = openDirectory(PI_Struct->CWD, parsedPath.buffer, &PI_Struct->DataStructure.directory);
     }
 
+    finalizeDynamicString(&parsedPath);
 
-    if (getFileInfo(PI_Struct->CWD, fileName.buffer, &PI_Struct->DataStructure.fileInfo) == FR_OK)
+    if (fresult == FR_PATH_TOO_LONG)
     {
-    	PI_Struct->DataStructure.dtpState = STATE_SEND_LISTING;
-    	PI_Struct->DataStructure.detailedListing = detailedListing;
-		if (ftp_OpenDataConnection(PI_Struct) != 0)
-		{
-			// @TODO: An error occured. Reply with a message
-		}
-		else
-		{
-		    // Send msg 150 to let the client the listing is on its way
-			formatFTPReply(FTPREPLYID_150, reply, fileName.buffer);
-		}
+    	formatFTPReply(FTPREPLYID_501, reply, "Argument Error: path is too long. Must be <= 255 characters.");
     }
-    else
+    else if (fresult != FR_OK)
     {
     	formatFTPReply(FTPREPLYID_550, reply);
     }
+    else
+    {
+		PI_Struct->DataStructure.dtpState = STATE_SEND_LISTING;
+		PI_Struct->DataStructure.detailedListing = detailedListing;
 
-    finalizeDynamicString(&fileName);
+		if (ftp_OpenDataConnection(PI_Struct) != 0)
+		{
+			// local processing error
+			formatFTPReply(FTPREPLYID_451, reply);
+		}
+		else
+		{
+			// Send msg 150 to let the client know the listing is on its way
+			formatFTPReply(FTPREPLYID_150, reply, PI_Struct->DataStructure.fileInfo.fname);
+		}
+    }
 }
 
 void executeCommand_LIST
@@ -513,7 +556,6 @@ void executeCommand_NLST
 )
 {
 	bool detailedListing = false;
-	UARTPrintLn("NLST CMD Executed");
 	_executeListingCommand(arguments, detailedListing, reply, PI_Struct);
 }
 
@@ -546,36 +588,43 @@ void executeCommand_STAT
     FtpPiStruct_t *PI_Struct
 )
 {
-    UARTPrintLn("Reading root dir...");
+    char parsedPathBuffer[MAX_PATH_LENGTH * 2 + 1];
+    DynamicString parsedPath;
+    initializeDynamicString(&parsedPath, parsedPathBuffer, sizeof(parsedPathBuffer));
 
-    DynamicString path;
-    initializeDynamicString(&path, NULL, 0);
-    if (parsePrintableString(arguments, &path) == NULL)
+    parsePrintableString(arguments, &parsedPath);
+
+    if (strcmp(parsedPath.buffer, "") == 0)
     {
     	formatFTPReply(FTPREPLYID_211, reply, "All is well! Thanks for asking!");
+    	finalizeDynamicString(&parsedPath);
     	return;
     }
+    else
+    {
+    	Path statPath;
+    	bool joinPathSuccessful = resolveRelativeAbsolutePath(PI_Struct->CWD, parsedPath.buffer, statPath);
+    	finalizeDynamicString(&parsedPath);
 
-    const char *finalPath = resolveRelativeAbsolutePath(PI_Struct->CWD, path.buffer);
-    finalizeDynamicString(&path);
+        if (!joinPathSuccessful)
+        {
+        	formatFTPReply(FTPREPLYID_501, reply, "Argument Error: path is too long. Must be <= 255 characters.");
+        	return;
+        }
 
-    DynamicString directoryContents;
-    initializeDynamicString(&directoryContents, NULL, 0);
+        DynamicString directoryContents;
+        initializeDynamicString(&directoryContents, NULL, 0);
 
-    size_t bytesWritten = 0;
-    readDirectoryContents(finalPath, &directoryContents, &bytesWritten);
+        size_t bytesWritten = 0;
+        readDirectoryContents(statPath, &directoryContents, &bytesWritten);
 
-    resizeDynamicString(&directoryContents, bytesWritten + 1);
-    readDirectoryContents(finalPath, &directoryContents, &bytesWritten);
+        resizeDynamicString(&directoryContents, bytesWritten + 1);
+        readDirectoryContents(statPath, &directoryContents, &bytesWritten);
 
-    UARTPrintLn(directoryContents.buffer);
+        formatFTPReply(FTPREPLYID_213, reply, directoryContents.buffer);
 
-    formatFTPReply(FTPREPLYID_213, reply, directoryContents.buffer);
-
-    finalizeDynamicString(&directoryContents);
-    free(finalPath);
-
-    UARTPrintLn(reply->buffer);
+        finalizeDynamicString(&directoryContents);
+    }
 }
 
 void executeCommand_HELP

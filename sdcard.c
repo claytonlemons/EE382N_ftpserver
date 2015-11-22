@@ -36,6 +36,8 @@
 #include "dynamic_string.h"
 #include "stdio.h"
 #include "stdint.h"
+#include "UartDebug.h"
+#include "sdcard.h"
 
 #define CHECK_FRESULT(snippet) fresult = (snippet); if (fresult != FR_OK) goto ERROR;
 
@@ -96,72 +98,115 @@ tFresultString g_sFresultStrings[] =
 //*****************************************************************************
 #define NUM_FRESULT_CODES (sizeof(g_sFresultStrings) / sizeof(tFresultString))
 
-// This function is used to resolve relative and absolute paths
-const char* resolveRelativeAbsolutePath(const char *cwd,
-    const char *PathToResolve){
-    char * finalPath =  malloc(strlen(cwd) + strlen(PathToResolve) + 1);
+bool _findNextPathSegment(const char *path, const char **segment, size_t *segmentLength)
+{
+	if (path == NULL || segment == NULL || segmentLength == NULL)
+	{
+		UARTPrintLn("Error: NULL argument passed into _findNextPathSegment");
+		return false;
+	}
 
-    // When the path to resolve starts with '/' we are dealing with an absolute
-    // path
-    if (*PathToResolve == '/'){
-        // Copy the path to resolve
-        strcpy(finalPath, PathToResolve);
-        return (const char*)finalPath;
-    } else if (strlen(cwd) == 1){
-        // This means we are at the root
-        if(PathToResolve[0] == '.' && PathToResolve[1] == '.')
+	if (*path == '\0')
+	{
+		return false;
+	}
+
+	*segment = path;
+
+	while (*path != '\0' && *path != '/')
+	{
+		path++;
+	}
+
+	*segmentLength = path - *segment;
+
+	if (*path == '/')
+	{
+		*segmentLength += 1; // The +1 accounts for the trailing slash
+	}
+
+	return true;
+}
+
+// This function is used to resolve relative and absolute paths
+bool resolveRelativeAbsolutePath(const Path basePath, const char *pathToJoinString, Path joinedPath)
+{
+	Path tempPath;
+
+    // When the path to join starts with '/', we are dealing with an absolute path
+    if (*pathToJoinString == '/')
+    {
+    	if (strlen(pathToJoinString) > MAX_PATH_LENGTH)
+    	{
+    		return false;
+    	}
+    	else
+    	{
+            // Copy the path to join
+    		strcpy(joinedPath, pathToJoinString);
+    		return true;
+    	}
+    }
+    else
+    {
+        strcpy(tempPath, basePath);
+
+        // INVARIANT: endOfTempPath must always point to the NULL byte at the end of tempPath
+        char * endOfTempPath = tempPath + strlen(tempPath);
+
+        const char *segment = NULL;
+        size_t segmentLength = 0;
+
+        while (_findNextPathSegment(pathToJoinString, &segment, &segmentLength))
         {
-            // When we are already at the root and we receive a path trying to
-            // go beyond the root, we return the root.
-            *finalPath = '/';
-            finalPath[1] = '\0';
-            return finalPath;
-        }
-    } else {
-        strcpy(finalPath, cwd);
-        // This variable points to the end of the string from the "finalPath"
-        // variable.
-        char * EndOfPath = (finalPath + (strlen(cwd) - 2));
-        if ((PathToResolve[0] == '.') &&
-            (PathToResolve[1] == '.') &&
-            (strlen(PathToResolve) == 2)){
-            // This means we need to move up one directory
-            while (*EndOfPath != '/'){
-                EndOfPath--;
-            }
-            EndOfPath[1] = '\0';
-            return finalPath;
-        }
-        unsigned int i = 0;
-        unsigned int cwdCharsLeft = strlen(cwd);
-        while((i < strlen(PathToResolve)) && (cwdCharsLeft > 0)){
-        	if((PathToResolve[0] == '.') &&
-        	   (PathToResolve[1] == '/')){
-        		PathToResolve += 2;
+        	if ((segmentLength == 2 && strncmp(segment, "..", segmentLength) == 0) || (segmentLength == 3 && strncmp(segment, "../", segmentLength) == 0))
+        	{
+        		while (*--endOfTempPath != '/');
+        		*++endOfTempPath = '\0';
+        	}
+        	else if ((segmentLength == 1 && strncmp(segment, ".", segmentLength) == 0) || (segmentLength == 2 && strncmp(segment, "./", segmentLength) == 0))
+        	{
+        		// Nothing to do here
+        	}
+        	else
+        	{
+                // Add a trailing slash to tempPath if needed
+                if (*(endOfTempPath - 1) != '/')
+                {
+                	if ((endOfTempPath + 1) - tempPath > MAX_PATH_LENGTH)
+                	{
+                		return false;
+                	}
+                	else
+                	{
+                		strcat(endOfTempPath, "/");
+                	}
+                }
+
+        		if ((endOfTempPath + segmentLength) - tempPath > MAX_PATH_LENGTH)
+        		{
+        			return false;
+        		}
+        		else
+        		{
+        			strncat(endOfTempPath, pathToJoinString, segmentLength);
+        			endOfTempPath += segmentLength;
+        		}
+
+                if (*(endOfTempPath - 1) == '/')
+                {
+                	*--endOfTempPath = '\0';
+                }
         	}
 
-            if((PathToResolve[0] == '.') &&
-               (PathToResolve[1] == '.') &&
-               (PathToResolve[2] == '/')){
-                    // Move up one directory on the current working dir
-                    while (*EndOfPath != '/'){
-                        EndOfPath--;
-                        cwdCharsLeft--;
-                    }
-                    EndOfPath[1] = '\0';
-                    EndOfPath--;
-                    // Add 3 to advance beyond the '/' we encountered.
-                    PathToResolve += 3;
-                    i += 3;
-            }
+        	pathToJoinString += segmentLength;
         }
-        strcat(finalPath, PathToResolve);
-        return finalPath;
+
     }
-    // If we break out of the while loop it means the path is not valid so
-    // return null
-    *finalPath = '\0';
-    return (const char *)finalPath;
+
+    strncpy(joinedPath, tempPath, MAX_PATH_LENGTH);
+
+    return true;
 }
 
 //*****************************************************************************
@@ -222,42 +267,71 @@ ERROR:
 	return fresult;
 }
 
-FRESULT getFileInfo(const char *cwd, const char *filepath, FILINFO *fileInfo)
+bool isDirectory(const Path path)
+{
+	FRESULT fresult;
+	FILINFO info;
+
+	CHECK_FRESULT(f_stat(path, &info));
+
+ERROR:
+	return (fresult == FR_OK) && (info.fattrib & AM_DIR);
+}
+
+FRESULT getFileInfo(const Path cwd, const char *filePathString, FILINFO *fileInfo)
 {
 	FRESULT fresult;
 
-	const char *finalPath = resolveRelativeAbsolutePath(cwd, filepath);
+	Path filePath;
 
-	CHECK_FRESULT(f_stat(finalPath, fileInfo));
+	if (resolveRelativeAbsolutePath(cwd, filePathString, filePath) == false)
+	{
+		fresult = FR_PATH_TOO_LONG;
+		CHECK_FRESULT(fresult);
+	}
+
+	CHECK_FRESULT(f_stat(filePath, fileInfo));
 
 ERROR:
-	free((void *) finalPath);
+
 	return fresult;
 }
 
-FRESULT openFile(const char *cwd, const char *filepath, FIL *file, BYTE mode)
+FRESULT openFile(const Path cwd, const char *filePathString, FIL *file, BYTE mode)
 {
 	FRESULT fresult;
 
-	const char *finalPath = resolveRelativeAbsolutePath(cwd, filepath);
+	Path filePath;
 
-	CHECK_FRESULT(f_open(file, finalPath, mode));
+	if (resolveRelativeAbsolutePath(cwd, filePathString, filePath) == false)
+	{
+		fresult = FR_PATH_TOO_LONG;
+		CHECK_FRESULT(fresult);
+	}
+
+	CHECK_FRESULT(f_open(file, filePath, mode));
 
 ERROR:
-	free((void *) finalPath);
+
 	return fresult;
 }
 
-FRESULT openDirectory(const char *cwd, const char *directoryPath, DIR *directory)
+FRESULT openDirectory(const char *cwd, const char *directoryPathString, DIR *directory)
 {
 	FRESULT fresult;
 
-	const char *finalPath = resolveRelativeAbsolutePath(cwd, directoryPath);
+	Path directoryPath;
 
-	CHECK_FRESULT(f_opendir(directory, finalPath));
+	if (resolveRelativeAbsolutePath(cwd, directoryPathString, directoryPath) == false)
+	{
+		fresult = FR_PATH_TOO_LONG;
+		CHECK_FRESULT(fresult);
+	}
+
+
+	CHECK_FRESULT(f_opendir(directory, directoryPath));
 
 ERROR:
-	free((void *) finalPath);
 	return fresult;
 }
 
@@ -304,6 +378,8 @@ FRESULT readDirectoryContents(const char *directoryPath, DynamicString *director
     size_t directoryContentsBufferLength = directoryContents->length;
 
     size_t bytesWritten;
+
+    *totalBytesWritten = 0;
 
     // Open the current directory for access.
     CHECK_FRESULT(f_opendir(&directory, directoryPath));

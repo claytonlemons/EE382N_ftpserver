@@ -183,7 +183,8 @@ typedef enum {
     FR_NOT_ENABLED,        /* 10 */
     FR_NO_FILESYSTEM,    /* 11 */
     FR_INVALID_OBJECT,    /* 12 */
-    FR_MKFS_ABORTED        /* 13 */
+    FR_MKFS_ABORTED,        /* 13 */
+	FR_PATH_TOO_LONG       /* 14 */
 } FRESULT;
 
 
