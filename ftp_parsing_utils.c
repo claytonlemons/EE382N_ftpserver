@@ -43,7 +43,7 @@ const char * parseString(const char *arguments, DynamicString *stringBuffer)
 
 	if (stringLength > stringBuffer->length)
 	{
-		if (resizeDynamicString(stringBuffer, stringLength) == false)
+		if (resizeDynamicString(stringBuffer, stringLength + 1) == false)
 		{
 			return NULL;
 		}
@@ -70,7 +70,7 @@ const char * parsePrintableString(const char *arguments, DynamicString *stringBu
 
 	if (stringLength > stringBuffer->length)
 	{
-		if (resizeDynamicString(stringBuffer, stringLength) == false)
+		if (resizeDynamicString(stringBuffer, stringLength + 1) == false)
 		{
 			return NULL;
 		}

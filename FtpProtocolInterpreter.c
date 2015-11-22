@@ -165,23 +165,30 @@ static err_t ftp_SendFileListing(struct tcp_pcb *pcb, FtpPiStruct_t *PI_Struct)
 
 	if (PI_Struct->DataStructure.detailedListing)
 	{
+		#define SIZE_STRING_LENGTH 10
+		char sizeString[SIZE_STRING_LENGTH + 1];
+
+		if (fileInfo->fattrib & AM_DIR)
+		{
+			snprintf(sizeString, sizeof(sizeString), "%s", "<DIR>");
+		}
+		else
+		{
+			snprintf(sizeString, sizeof(sizeString), "%10u", fileInfo->fsize);
+		}
+
 		snprintf
 		(
 			PI_Struct->DataStructure.outputBuffer,
 			sizeof(PI_Struct->DataStructure.outputBuffer),
-			"%c%c%c%c%c %u/%02u/%02u %02u:%02u %9u  %s\r\n",
-			(fileInfo->fattrib & AM_DIR) ? 'D' : '-',
-			(fileInfo->fattrib & AM_RDO) ? 'R' : '-',
-			(fileInfo->fattrib & AM_HID) ? 'H' : '-',
-			(fileInfo->fattrib & AM_SYS) ? 'S' : '-',
-			(fileInfo->fattrib & AM_ARC) ? 'A' : '-',
-			(fileInfo->fdate >> 9) + 1980,
+			"%02u-%02u-%02u %02u:%02u %s %s \r\n",
 			(fileInfo->fdate >> 5) & 15,
 			 fileInfo->fdate & 31,
+			((fileInfo->fdate >> 9) + 1980) % 100,
 			(fileInfo->ftime >> 11),
 			(fileInfo->ftime >> 5) & 63,
-			 fileInfo->fsize,
-			 fileInfo->fname
+			sizeString,
+			fileInfo->fname
 		);
 	}
 	else
@@ -219,12 +226,6 @@ static err_t ftp_SendListing(struct tcp_pcb *pcb, FtpPiStruct_t *PI_Struct)
 {
 	if (PI_Struct->DataStructure.fileInfo.fattrib & AM_DIR)
 	{
-		if (openDirectory(PI_Struct->CWD, PI_Struct->DataStructure.fileInfo.fname, &PI_Struct->DataStructure.directory) != FR_OK)
-		{
-			UARTPrintLn("Error: unable to open directory for sending listing!");
-			return ERR_ABRT;
-		}
-
 		// Note: we are now reusing the fileinfo object to print each directory entry
 		f_readdir(&PI_Struct->DataStructure.directory, &PI_Struct->DataStructure.fileInfo);
 
@@ -334,24 +335,26 @@ static err_t ftp_DataSent(void *arg, struct tcp_pcb *pcb, u16_t len){
 }
 
 // This method is called when a TCP data connection is opened.
-static err_t ftp_DataConnected(void *arg, struct tcp_pcb *pcb, err_t err){
+static err_t ftp_DataConnected(void *arg, struct tcp_pcb *pcb, err_t err)
+{
     FtpPiStruct_t *PI_Struct = arg;
     PI_Struct->PresState = DATA_CONN_OPEN;
     PI_Struct->DataConnection = pcb;
     UARTPrintLn("ftp_DataConnected Called!");
 
-    // TCP will call ftp_RxData when it receives data through this connection
-    tcp_recv(pcb, ftp_RxData);
-
-    // TCP will call ftp_DataSent it completes a frame transfer
-    tcp_sent(pcb, ftp_DataSent);
-
     switch (PI_Struct->DataStructure.dtpState) {
         case STATE_SEND_LISTING:
+        	tcp_sent(pcb, ftp_DataSent);
         	return ftp_SendListing(pcb, PI_Struct);
 
         case STATE_SEND_FILE:
+        	tcp_sent(pcb, ftp_DataSent);
         	return ftp_SendFile(pcb, PI_Struct);
+
+        case STATE_RECEIVE_FILE:
+        	// TCP will call ftp_RxData when it receives data through this connection
+        	tcp_recv(pcb, ftp_RxData);
+        	return ERR_OK;
 
         default:
             return ERR_ARG; // Invalid STATE!
@@ -372,27 +375,50 @@ err_t ftp_OpenDataConnection(FtpPiStruct_t *PI_Struct){
     err_t errStatus;
     // Open a data connection on the received FtpPiStruct_t structure
     PI_Struct->DataConnection = tcp_new();
-    // Bind the data connection to port 20 of the server's IP
-    errStatus = tcp_bind(PI_Struct->DataConnection,
-        &PI_Struct->MessageConnection->local_ip, 20);
+
     // Pass the PI_Struct to TCP
     tcp_arg(PI_Struct->DataConnection, PI_Struct);
     // Used to specify the function that should be called when a fatal error
     // has occurred on the connection.
+
     tcp_err(PI_Struct->DataConnection, ftp_DataConnError);
     // When the client has not programmed any Address/Port we will use
     // the address of the client and the default port 20
-    if (PI_Struct->hostPort.portNumber == 0){
-        PI_Struct->hostPort.hostNumber = PI_Struct->MessageConnection->remote_ip;
-        PI_Struct->hostPort.portNumber = 20;
+
+    if (PI_Struct->passive)
+    {
+    	// Bind the data connection to port 20 of the server's IP
+    	tcp_bind(PI_Struct->DataConnection, &PI_Struct->hostPort.hostNumber, PI_Struct->hostPort.portNumber);
+    	PI_Struct->DataConnection = tcp_listen(PI_Struct->DataConnection);
+    	tcp_accept(PI_Struct->DataConnection, ftp_DataConnected);
     }
-    // Call ftp_DataConnected when the connection is established
-    errStatus = tcp_connect(PI_Struct->DataConnection,
-        &PI_Struct->hostPort.hostNumber,
-        PI_Struct->hostPort.portNumber,
-        ftp_DataConnected);
-    if (errStatus == ERR_OK)
-        PI_Struct->PresState = DATA_CONN_OPEN;
+    else
+    {
+    	tcp_bind(PI_Struct->DataConnection, &PI_Struct->MessageConnection->local_ip, 20);
+
+        // When the client has not programmed any Address/Port we will use
+        // the address of the client and the default port 20
+        if (PI_Struct->hostPort.portNumber == 0)
+        {
+            PI_Struct->hostPort.hostNumber = PI_Struct->MessageConnection->remote_ip;
+            PI_Struct->hostPort.portNumber = 20;
+        }
+
+		// Call ftp_DataConnected when the connection is established
+		errStatus = tcp_connect
+		(
+			PI_Struct->DataConnection,
+			&PI_Struct->hostPort.hostNumber,
+			PI_Struct->hostPort.portNumber,
+			ftp_DataConnected
+		);
+
+		if (errStatus == ERR_OK)
+		{
+			PI_Struct->PresState = DATA_CONN_OPEN;
+		}
+    }
+
     return errStatus;
 }
 
@@ -535,6 +561,7 @@ static err_t ftp_Accept(void *arg, struct tcp_pcb *pcb, err_t err)
     PI_Structure->typeCode = TYPECODE_A;
     PI_Structure->structCode = STRUCTURECODE_F;
     PI_Structure->modeCode = MODECODE_S;
+    PI_Structure->passive = false;
     // Initialize the CWD to the root.
     snprintf(PI_Structure->CWD, sizeof(PI_Structure->CWD), "/");
     tcp_arg(pcb, PI_Structure);

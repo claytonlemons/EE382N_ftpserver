@@ -12,6 +12,7 @@
 #include <stdbool.h>
 #include "fatfs/src/FF.h"
 #include <lwip/src/include/ipv4/lwip/ip_addr.h>
+#include "sdcard.h"
 
 typedef struct
 {
@@ -92,7 +93,8 @@ typedef struct FtpPiStruct_t{
     TypeCode typeCode;
     StructureCode structCode;
     ModeCode modeCode;
-    char CWD[128];
+    bool passive;
+    Path CWD;
 } FtpPiStruct_t;
 
 
