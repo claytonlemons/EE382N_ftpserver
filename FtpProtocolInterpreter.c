@@ -20,17 +20,42 @@
 #include "UartDebug.h"
 #include "sdcard.h"
 
-#define kReplyBufferLength 128
+#define kReplyBufferLength 256
+
+static err_t g_err;
+static char *g_errFile = NULL;
+static size_t g_errLine = 0;
+
+#define CHECK_AND_RECORD_ERR(snippet) 	\
+	err = (snippet);					\
+	UARTPrintLn("Got here1");	\
+	if (err != ERR_OK)					\
+	{									\
+		if (g_err != ERR_OK)			\
+		{								\
+			g_err = err;				\
+			g_errFile = __FILE__;		\
+			g_errLine = __LINE__;		\
+			UARTPrintLn("Got here2");	\
+		}								\
+		goto ERROR;						\
+	}
 
 // This method is used to close a message connection
-err_t ftp_CloseMessageConnection (FtpPiStruct_t *PI_Struct){
+err_t ftp_CloseMessageConnection (FtpPiStruct_t *PI_Struct)
+{
+	err_t err = ERR_OK;
+
     UARTPrintLn("ftp_CloseMessageConnection called!");
     tcp_arg(PI_Struct->MessageConnection, NULL);
     tcp_sent(PI_Struct->MessageConnection, NULL);
     tcp_recv(PI_Struct->MessageConnection, NULL);
-    tcp_close(PI_Struct->MessageConnection);
+    CHECK_AND_RECORD_ERR(tcp_close(PI_Struct->MessageConnection));
     free(PI_Struct);
-    return ERR_OK;
+
+ERROR:
+
+    return err;
 }
 
 // This method is used to print debug error messages (err_t)
@@ -43,39 +68,46 @@ void PrintErrorNum(err_t err){
 // This method is used to transmit messages to the FTP client.
 // The messages are sent through the TCP pcb module using the
 // tcp_write.
-static void ftp_SendMsg(struct tcp_pcb *pcb, const char *msg, size_t length)
+static err_t ftp_SendMsg(struct tcp_pcb *pcb, const char *msg, size_t length)
 {
-    err_t err;
+    err_t err = ERR_OK;
 
     // Check how much space is available on the TCP TX buffer
-    if (tcp_sndbuf(pcb) < length) {
+    if (tcp_sndbuf(pcb) < length)
+    {
     	UARTPrintLn("ftp_SendMsg PCB < Msg!");
-        return;
+        CHECK_AND_RECORD_ERR(ERR_MEM);
     }
+
     // Send the message to the TCP module
-	err = tcp_write(pcb, msg, length, TCP_WRITE_FLAG_COPY);
-    if (err != ERR_OK) {
-    	UARTPrintLn("ftp_SendMsg writeError!");
-        PrintErrorNum(err);
-        return;
-    }
+    CHECK_AND_RECORD_ERR(tcp_write(pcb, msg, length, TCP_WRITE_FLAG_COPY));
+
+ERROR:
+
+	return err;
 }
 
 // This method is used to close a data connection
-err_t ftp_CloseDataConnection (FtpPiStruct_t *PI_Struct){
+err_t ftp_CloseDataConnection (FtpPiStruct_t *PI_Struct)
+{
+	err_t err = ERR_OK;
+
     UARTPrintLn("ftp_CloseDataConnection called!");
     tcp_arg(PI_Struct->DataConnection, NULL);
     tcp_sent(PI_Struct->DataConnection, NULL);
     tcp_recv(PI_Struct->DataConnection, NULL);
-    return tcp_close(PI_Struct->DataConnection);
+
+    CHECK_AND_RECORD_ERR(tcp_close(PI_Struct->DataConnection));
+
+ERROR:
+
+    return err;
 }
 
 // This method is used to take action when the TCP Data connection receives
 // data for us.
 static err_t ftp_RxData(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err)
 {
-	//UARTPrint("ftp_RxData Called!\r\n");
-
     FtpPiStruct_t *PI_Struct = arg;
 
     // We process the RX data only if no errors occurred and the input buffer is not empty.
@@ -124,13 +156,18 @@ static err_t ftp_RxData(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t er
         DynamicString reply;
         initializeDynamicString(&reply, StringBuffer, sizeof(StringBuffer));
 
-        formatFTPReply(FTPREPLYID_226, &reply);
-        ftp_SendMsg((PI_Struct->MessageConnection), reply.buffer, strlen(reply.buffer));
+        if (formatFTPReply(FTPREPLYID_226, &reply) == false)
+        {
+        	CHECK_AND_RECORD_ERR(ERR_MEM);
+        }
+        CHECK_AND_RECORD_ERR(ftp_SendMsg((PI_Struct->MessageConnection), reply.buffer, strlen(reply.buffer)));
 
         finalizeDynamicString(&reply);
     }
 
-    return ERR_OK;
+ERROR:
+
+    return err;
 }
 
 
@@ -138,7 +175,7 @@ static err_t ftp_RxData(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t er
 // data for us.
 static err_t ftp_SendData(struct tcp_pcb *pcb, void *data, size_t length)
 {
-	err_t err;
+	err_t err = ERR_OK;
 
 	do
 	{
@@ -150,17 +187,17 @@ static err_t ftp_SendData(struct tcp_pcb *pcb, void *data, size_t length)
 		}
 	} while (err == ERR_MEM && length > 1);
 
-	if (ERR_IS_FATAL(err))
-	{
-		UARTPrintLn("Encountered fatal error during ftp_SendData!");
-        PrintErrorNum(err);
-	}
+	CHECK_AND_RECORD_ERR(err);
+
+ERROR:
 
 	return err;
 }
 
 static err_t ftp_SendFileListing(struct tcp_pcb *pcb, FtpPiStruct_t *PI_Struct)
 {
+	err_t err = ERR_OK;
+
 	FILINFO * fileInfo = &PI_Struct->DataStructure.fileInfo;
 
 	if (PI_Struct->DataStructure.detailedListing)
@@ -204,42 +241,59 @@ static err_t ftp_SendFileListing(struct tcp_pcb *pcb, FtpPiStruct_t *PI_Struct)
 
 	fileInfo->fname[0] = '\0'; // This will let the ftp_DataSent function know that we are done sending the listing.
 
-	return ftp_SendData
+	CHECK_AND_RECORD_ERR
 	(
-		pcb,
-		PI_Struct->DataStructure.outputBuffer,
-		strlen(PI_Struct->DataStructure.outputBuffer)
+		ftp_SendData
+		(
+			pcb,
+			PI_Struct->DataStructure.outputBuffer,
+			strlen(PI_Struct->DataStructure.outputBuffer)
+		)
 	);
+
+ERROR:
+
+	return err;
 }
 
 static err_t ftp_SendDirectoryListing(struct tcp_pcb *pcb, FtpPiStruct_t *PI_Struct)
 {
-	ftp_SendFileListing(pcb, PI_Struct);
+	err_t err = ERR_OK;
+
+	CHECK_AND_RECORD_ERR(ftp_SendFileListing(pcb, PI_Struct));
 
 	FILINFO * fileInfo = &PI_Struct->DataStructure.fileInfo;
 	f_readdir(&PI_Struct->DataStructure.directory, fileInfo);
 
-	return ERR_OK;
+ERROR:
+
+	return err;
 }
 
 static err_t ftp_SendListing(struct tcp_pcb *pcb, FtpPiStruct_t *PI_Struct)
 {
+	err_t err = ERR_OK;
+
 	if (PI_Struct->DataStructure.fileInfo.fattrib & AM_DIR)
 	{
 		// Note: we are now reusing the fileinfo object to print each directory entry
 		f_readdir(&PI_Struct->DataStructure.directory, &PI_Struct->DataStructure.fileInfo);
 
-		return ftp_SendDirectoryListing(pcb, PI_Struct);
+		CHECK_AND_RECORD_ERR(ftp_SendDirectoryListing(pcb, PI_Struct));
 	}
 	else
 	{
-		return ftp_SendFileListing(pcb, PI_Struct);
+		CHECK_AND_RECORD_ERR(ftp_SendFileListing(pcb, PI_Struct));
 	}
+
+ERROR:
+
+	return err;
 }
 
 static err_t ftp_SendFile(struct tcp_pcb *pcb, FtpPiStruct_t *PI_Struct)
 {
-	err_t err;
+	err_t err = ERR_OK;
 
 	uint16_t bufferLength =
 		(tcp_sndbuf(pcb) < PI_Struct->DataStructure.bytesRemaining) ? tcp_sndbuf(pcb) : PI_Struct->DataStructure.bytesRemaining;
@@ -252,12 +306,14 @@ static err_t ftp_SendFile(struct tcp_pcb *pcb, FtpPiStruct_t *PI_Struct)
 	if (numBytesRead != bufferLength)
 	{
 		UARTPrintLn("Unable to read the right number of bytes from the file.");
-		return ERR_ABRT;
+		CHECK_AND_RECORD_ERR(ERR_BUF);
 	}
 
-	err = ftp_SendData(pcb, intermediateDataBuffer, bufferLength);
+	CHECK_AND_RECORD_ERR(ftp_SendData(pcb, intermediateDataBuffer, bufferLength));
 
 	PI_Struct->DataStructure.bytesRemaining -= bufferLength;
+
+ERROR:
 
 	return err;
 }
@@ -265,41 +321,46 @@ static err_t ftp_SendFile(struct tcp_pcb *pcb, FtpPiStruct_t *PI_Struct)
 
 // This method gets called when the data connection is done sending a frame
 static err_t ftp_DataSent(void *arg, struct tcp_pcb *pcb, u16_t len){
-	err_t err;
+	err_t err = ERR_OK;
 
     FtpPiStruct_t *PI_Struct = arg;
     UARTPrint("ftp_DataSent Called!\r\n");
 
-    switch (PI_Struct->DataStructure.dtpState) {
+    switch (PI_Struct->DataStructure.dtpState)
+    {
         case STATE_SEND_LISTING:
         	if (PI_Struct->DataStructure.fileInfo.fname[0] != NULL) // There is another directory entry to send
         	{
-        		ftp_SendDirectoryListing(pcb, PI_Struct);
+        		CHECK_AND_RECORD_ERR(ftp_SendDirectoryListing(pcb, PI_Struct));
         	}
         	else // We either just sent a file listing, or we reached the last directory entry
         	{
         		// @TODO: Refactor this code with the code in ftp_RxData
                 PI_Struct->PresState = READY;
                 PI_Struct->DataStructure.dtpState = DATA_CLOSED;
-                ftp_CloseDataConnection(PI_Struct);
+                CHECK_AND_RECORD_ERR(ftp_CloseDataConnection(PI_Struct));
 
                 // Send msg226 when the operation completes.
                 char StringBuffer[kReplyBufferLength];
                 DynamicString reply;
                 initializeDynamicString(&reply, StringBuffer, sizeof(StringBuffer));
 
-                formatFTPReply(FTPREPLYID_226, &reply);
-                ftp_SendMsg((PI_Struct->MessageConnection), reply.buffer, strlen(reply.buffer));
+                if (formatFTPReply(FTPREPLYID_226, &reply) == false)
+                {
+                	CHECK_AND_RECORD_ERR(ERR_MEM);
+                }
+
+                CHECK_AND_RECORD_ERR(ftp_SendMsg(PI_Struct->MessageConnection, reply.buffer, strlen(reply.buffer)));
+                CHECK_AND_RECORD_ERR(tcp_output(PI_Struct->MessageConnection));
 
                 finalizeDynamicString(&reply);
-
-                return ERR_OK;
         	}
             break;
+
         case STATE_SEND_FILE:
         	if (PI_Struct->DataStructure.bytesRemaining > 0)
         	{
-        		err = ftp_SendFile(pcb, PI_Struct);
+        		CHECK_AND_RECORD_ERR(ftp_SendFile(pcb, PI_Struct));
         	}
         	else
         	{
@@ -307,29 +368,31 @@ static err_t ftp_DataSent(void *arg, struct tcp_pcb *pcb, u16_t len){
                 PI_Struct->PresState = READY;
                 PI_Struct->DataStructure.dtpState = DATA_CLOSED;
                 closeFile(&PI_Struct->DataStructure.file);
-                ftp_CloseDataConnection(PI_Struct);
+                CHECK_AND_RECORD_ERR(ftp_CloseDataConnection(PI_Struct));
 
                 // Send msg226 when the operation completes.
                 char StringBuffer[kReplyBufferLength];
                 DynamicString reply;
                 initializeDynamicString(&reply, StringBuffer, sizeof(StringBuffer));
 
-                formatFTPReply(FTPREPLYID_226, &reply);
-                ftp_SendMsg((PI_Struct->MessageConnection), reply.buffer, strlen(reply.buffer));
+                if (formatFTPReply(FTPREPLYID_226, &reply) == false)
+                {
+                	CHECK_AND_RECORD_ERR(ERR_MEM);
+                }
+
+                CHECK_AND_RECORD_ERR(ftp_SendMsg(PI_Struct->MessageConnection, reply.buffer, strlen(reply.buffer)));
+                CHECK_AND_RECORD_ERR(tcp_output(PI_Struct->MessageConnection));
 
                 finalizeDynamicString(&reply);
         	}
-
             break;
+
         default:
+        	CHECK_AND_RECORD_ERR(ERR_ARG);
             break;
     }
 
-	if (ERR_IS_FATAL(err))
-	{
-		UARTPrintLn("Encountered fatal error during ftp_DataSent!");
-        PrintErrorNum(err);
-	}
+ERROR:
 
     return err;
 }
@@ -338,27 +401,33 @@ static err_t ftp_DataSent(void *arg, struct tcp_pcb *pcb, u16_t len){
 static err_t ftp_DataConnected(void *arg, struct tcp_pcb *pcb, err_t err)
 {
     FtpPiStruct_t *PI_Struct = arg;
+
     PI_Struct->PresState = DATA_CONN_OPEN;
-    PI_Struct->DataConnection = pcb;
     UARTPrintLn("ftp_DataConnected Called!");
 
     switch (PI_Struct->DataStructure.dtpState) {
         case STATE_SEND_LISTING:
         	tcp_sent(pcb, ftp_DataSent);
-        	return ftp_SendListing(pcb, PI_Struct);
+        	CHECK_AND_RECORD_ERR(ftp_SendListing(pcb, PI_Struct));
+        	break;
 
         case STATE_SEND_FILE:
         	tcp_sent(pcb, ftp_DataSent);
-        	return ftp_SendFile(pcb, PI_Struct);
+        	CHECK_AND_RECORD_ERR(ftp_SendFile(pcb, PI_Struct));
+        	break;
 
         case STATE_RECEIVE_FILE:
         	// TCP will call ftp_RxData when it receives data through this connection
         	tcp_recv(pcb, ftp_RxData);
-        	return ERR_OK;
+        	break;
 
         default:
-            return ERR_ARG; // Invalid STATE!
+            CHECK_AND_RECORD_ERR(ERR_ARG); // Invalid STATE!
     }
+
+ERROR:
+
+    return err;
 }
 
 // This method gets called by the TCP module when an error occurs.
@@ -367,12 +436,19 @@ static void ftp_DataConnError(void *arg, err_t err)
     UARTPrintLn("ftp_DataConnError Called!");
     // FtpPiStruct_t *PI_Struct = arg;
     PrintErrorNum(err);
+
+    char location[128];
+    sprintf(location, "FILE: %s\r\nLINE: %d\r\n", g_errFile, g_errLine);
+    UARTPrintLn(location);
 }
+
+
 
 // This method is used to open a TCP data connection.
 err_t ftp_OpenDataConnection(FtpPiStruct_t *PI_Struct){
 
-    err_t errStatus;
+    err_t err = ERR_OK;
+
     // Open a data connection on the received FtpPiStruct_t structure
     PI_Struct->DataConnection = tcp_new();
 
@@ -388,13 +464,13 @@ err_t ftp_OpenDataConnection(FtpPiStruct_t *PI_Struct){
     if (PI_Struct->passive)
     {
     	// Bind the data connection to port 20 of the server's IP
-    	tcp_bind(PI_Struct->DataConnection, &PI_Struct->hostPort.hostNumber, PI_Struct->hostPort.portNumber);
+    	CHECK_AND_RECORD_ERR(tcp_bind(PI_Struct->DataConnection, &PI_Struct->hostPort.hostNumber, PI_Struct->hostPort.portNumber));
     	PI_Struct->DataConnection = tcp_listen(PI_Struct->DataConnection);
     	tcp_accept(PI_Struct->DataConnection, ftp_DataConnected);
     }
     else
     {
-    	tcp_bind(PI_Struct->DataConnection, &PI_Struct->MessageConnection->local_ip, 20);
+    	CHECK_AND_RECORD_ERR(tcp_bind(PI_Struct->DataConnection, &PI_Struct->MessageConnection->local_ip, 20));
 
         // When the client has not programmed any Address/Port we will use
         // the address of the client and the default port 20
@@ -405,21 +481,21 @@ err_t ftp_OpenDataConnection(FtpPiStruct_t *PI_Struct){
         }
 
 		// Call ftp_DataConnected when the connection is established
-		errStatus = tcp_connect
+        CHECK_AND_RECORD_ERR
 		(
-			PI_Struct->DataConnection,
-			&PI_Struct->hostPort.hostNumber,
-			PI_Struct->hostPort.portNumber,
-			ftp_DataConnected
+        	tcp_connect
+			(
+				PI_Struct->DataConnection,
+				&PI_Struct->hostPort.hostNumber,
+				PI_Struct->hostPort.portNumber,
+				ftp_DataConnected
+			)
 		);
-
-		if (errStatus == ERR_OK)
-		{
-			PI_Struct->PresState = DATA_CONN_OPEN;
-		}
     }
 
-    return errStatus;
+ ERROR:
+
+    return err;
 }
 
 

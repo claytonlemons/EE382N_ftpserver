@@ -55,7 +55,7 @@ void executeCommand_USER
     // The expected username is "Anonymous\3". The Windows FTP server sends a
     // '\3' after the string. Because of this, we add it to the string
     // comparison
-    if (strcmp(username.buffer, "anonymous\3") == 0){
+    if (strcmp(username.buffer, "anonymous") == 0 || strcmp(username.buffer, "anonymous\3") == 0){
         PI_Struct->PresState = WAIT_FOR_PASSWORD;
         // Return reply 331 to let the user know everything is correct
         formatFTPReply(FTPREPLYID_331, reply);
