@@ -19,9 +19,7 @@
 #include "driverlib/interrupt.h"
 #include "FtpProtocolInterpreter.h"
 #include "sdcard.h"
-#include "UartDebug.h"
 #include "fatfs/src/ff.h"
-#include "UartDebug.h"
 #include "lwip/tcp.h"
 
 //#include "io.h"
@@ -67,7 +65,7 @@ DisplayIPAddress(unsigned long ipaddr)
     //
     // Display the string.
     //
-    UARTPrint(pucBuf);
+    UARTprintf("%s\r\n", pucBuf);
 }
 
 //*****************************************************************************
@@ -109,7 +107,7 @@ lwIPHostTimerHandler(void)
     //
     if(ulIPAddress == 0)
     {
-    	UARTPrint(".");
+    	UARTprintf(".");
     }
 
     //
@@ -117,22 +115,19 @@ lwIPHostTimerHandler(void)
     //
     else if(ulLastIPAddress != ulIPAddress)
     {
-    	UARTPrintLn("initialized!");
+    	UARTprintf("initialized!\r\n");
         ulLastIPAddress = ulIPAddress;
 
-        UARTPrint("IP: ");
+        UARTprintf("IP: \r\n");
         DisplayIPAddress(ulIPAddress);
-        UARTPrintLn("");
 
         ulIPAddress = lwIPLocalNetMaskGet();
-        UARTPrint("MASK: ");
+        UARTprintf("MASK: \r\n");
 		DisplayIPAddress(ulIPAddress);
-		UARTPrintLn("");
 
         ulIPAddress = lwIPLocalGWAddrGet();
-        UARTPrint("GW: ");
+        UARTprintf("GW: \r\n");
 		DisplayIPAddress(ulIPAddress);
-		UARTPrintLn("");
 
     }
 }
@@ -167,6 +162,16 @@ int main(void) {
     IntMasterEnable();
 
     //
+    // Enable the UART0 for debugging purposes.
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
+    //
+    // Set GPIO A0 and A1 as UART pins.
+    GPIOPinTypeUART(GPIO_PORTA_BASE, GPIO_PIN_0 | GPIO_PIN_1);
+
+    UARTStdioInit(0);
+
+    //
     // Configure the hardware MAC address for Ethernet Controller filtering of
     // incoming packets.
     //
@@ -181,7 +186,7 @@ int main(void) {
         // We should never get here.  This is an error if the MAC address
         // has not been programmed into the device.  Exit the program.
         //
-    	UARTPrintLn("Fatal Error: MAC address is not programmed!!!");
+    	UARTprintf("Fatal Error: MAC address is not programmed!!!\r\n");
         while(1);
     }
 
@@ -212,19 +217,13 @@ int main(void) {
     // Initialize a sample FTP server.
     ftp_Init();
 
-    //
-    // Enable the UART0 for debugging purposes.
-    SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
-    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
-    //
-    // Set GPIO A0 and A1 as UART pins.
-    GPIOPinTypeUART(GPIO_PORTA_BASE, GPIO_PIN_0 | GPIO_PIN_1);
-    //
-    // Configure the UART for 115,200, 8-N-1 operation.
-    UARTConfigSetExpClk(UART0_BASE, SysCtlClockGet(), 115200,
-        (UART_CONFIG_WLEN_8 | UART_CONFIG_STOP_ONE | UART_CONFIG_PAR_NONE));
 
-    UARTPrint("Mounting SD card...");
+
+    // Configure the UART for 115,200, 8-N-1 operation.
+    //UARTConfigSetExpClk(UART0_BASE, SysCtlClockGet(), 115200,
+    //    (UART_CONFIG_WLEN_8 | UART_CONFIG_STOP_ONE | UART_CONFIG_PAR_NONE));
+
+	UARTprintf("Mounting SD card...");
     SysCtlPeripheralEnable(SYSCTL_PERIPH_SSI0);
     //RIT128x96x4Init(1000000);
 
@@ -232,18 +231,17 @@ int main(void) {
 
     if (fresult == FR_OK)
     {
-    	UARTPrintLn("success!");
+    	UARTprintf("success!\r\n");
     }
     else
     {
-    	UARTPrintLn("failed!");
-    	UARTPrint("Mounting error: ");
-    	UARTPrintLn(fresultToString(fresult));
+    	UARTprintf("failed!\r\n");
+    	UARTprintf("Mounting error: %s", fresultToString(fresult));
 
     	return 1;
     }
 
-    UARTPrint("Initializing FTP server.");
+    UARTprintf("Initializing FTP server.");
 
     //
     // Loop forever.  All the work is done in interrupt handlers.

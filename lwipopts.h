@@ -372,7 +372,6 @@
 // ---------- Debugging options ----------
 //
 //*****************************************************************************
-#if 0
 #define U8_F "c"
 #define S8_F "c"
 #define X8_F "x"
@@ -384,13 +383,12 @@
 #define X32_F "x"
 extern void UARTprintf(const char *pcString, ...);
 #define LWIP_DEBUG
-#endif
 
 //#define LWIP_DBG_MIN_LEVEL              LWIP_DBG_LEVEL_OFF
-#define LWIP_DBG_MIN_LEVEL              LWIP_DBG_LEVEL_OFF
+//#define LWIP_DBG_MIN_LEVEL              LWIP_DBG_LEVEL_OFF
 //#define LWIP_DBG_MIN_LEVEL              LWIP_DBG_LEVEL_WARNING
 //#define LWIP_DBG_MIN_LEVEL              LWIP_DBG_LEVEL_SERIOUS
-//#define LWIP_DBG_MIN_LEVEL              LWIP_DBG_LEVEL_SEVERE
+#define LWIP_DBG_MIN_LEVEL              LWIP_DBG_LEVEL_SEVERE
 
 //#define LWIP_DBG_TYPES_ON               LWIP_DBG_ON
 #define LWIP_DBG_TYPES_ON               (LWIP_DBG_ON|LWIP_DBG_TRACE|LWIP_DBG_STATE|LWIP_DBG_FRESH)

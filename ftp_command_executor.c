@@ -13,7 +13,6 @@
 #include "ftp_replies.h"
 #include "ftp_parsing_utils.h"
 #include "FtpProtocolInterpreter.h"
-#include "UartDebug.h"
 #include "sdcard.h"
 #include "stdlib.h"
 
@@ -45,17 +44,16 @@ void executeCommand_USER
 {
     burnWhitespace(arguments);
 
-    UARTPrintLn("USER CMD Executed");
-    char usernameBuffer[64];
+	UARTprintf("USER CMD Executed\r\n");
     DynamicString username;
-    initializeDynamicString(&username, usernameBuffer, sizeof(usernameBuffer));
+    initializeDynamicString(&username, NULL, 0);
 
     // Get the username from the arguments
     FTP_PARSE(String(arguments, &username));
     // The expected username is "Anonymous\3". The Windows FTP server sends a
     // '\3' after the string. Because of this, we add it to the string
     // comparison
-    if (strcmp(username.buffer, "anonymous") == 0 || strcmp(username.buffer, "anonymous\3") == 0){
+    if (strncmp(username.buffer, "anonymous", username.length - 1) == 0){
         PI_Struct->PresState = WAIT_FOR_PASSWORD;
         // Return reply 331 to let the user know everything is correct
         formatFTPReply(FTPREPLYID_331, reply);
@@ -91,7 +89,7 @@ void executeCommand_PASS
     PI_Struct->PresState = READY;
     // Return reply 230 to let the user know everything is correct
     formatFTPReply(FTPREPLYID_230, reply);
-    UARTPrintLn("PASS CMD Executed");
+    UARTprintf("PASS CMD Executed\r\n");
 }
 
 void executeCommand_ACCT
@@ -104,17 +102,6 @@ void executeCommand_ACCT
     formatFTPReply(FTPREPLYID_502, reply);
 }
 
-void _executeChangeDirectoryCommand
-(
-	Path newDir,
-    DynamicString *reply,
-    FtpPiStruct_t *PI_Struct
-)
-{
-
-
-}
-
 void executeCommand_CWD
 (
     const char *arguments,
@@ -122,7 +109,7 @@ void executeCommand_CWD
     FtpPiStruct_t *PI_Struct
 )
 {
-	UARTPrintLn("CWD CMD Executed");
+	UARTprintf("CWD CMD Executed\r\n");
 
 	char parsedPathBuffer[MAX_PATH_LENGTH * 2 + 1];
 	DynamicString parsedPath;
@@ -141,7 +128,7 @@ void executeCommand_CWD
     	return;
     }
 
-    UARTPrintLn(newDir);
+    UARTprintf("New Directory: %s\r\n", newDir);
 
     if (isDirectory(newDir))
     {
@@ -161,7 +148,7 @@ void executeCommand_CDUP
     FtpPiStruct_t *PI_Struct
 )
 {
-	UARTPrintLn("CDUP CMD Executed");
+	UARTprintf("CDUP CMD Executed\r\n");
 
 	Path newDir;
 	resolveRelativeAbsolutePath(PI_Struct->CWD, "..", newDir);
@@ -213,12 +200,11 @@ void executeCommand_PORT
     FTP_PARSE(HostPort(arguments, &(PI_Struct->hostPort)));
 
     // Debug UART Print
-    UARTPrintLn("PORT CMD Executed");
+    UARTprintf("PORT CMD Executed\r\n");
     char debugPortBuff[64];
     DynamicString debugPort;
     initializeDynamicString(&debugPort, debugPortBuff, sizeof(debugPortBuff));
     FTP_PARSE(PrintableString(DebugPortContents, &debugPort));
-    UARTPrintLn(debugPort.buffer);
     finalizeDynamicString(&debugPort);
 
     PI_Struct->passive = false;
@@ -236,7 +222,7 @@ void executeCommand_PASV
 	static uint16_t portNumber = 5000;
 
 	PI_Struct->hostPort.hostNumber = PI_Struct->MessageConnection->local_ip;
-	PI_Struct->hostPort.portNumber = portNumber++; // @TODO: We'll need to make this more robust for multiple connections
+	PI_Struct->hostPort.portNumber = portNumber; // @TODO: We'll need to make this more robust for multiple connections
 
 	uint8_t *hostNumberAsByteArray = (uint8_t *) &(PI_Struct->hostPort.hostNumber.addr);
 	uint8_t *portNumberAsByteArray = (uint8_t *) &(PI_Struct->hostPort.portNumber);
@@ -264,7 +250,7 @@ void executeCommand_TYPE
 )
 {
 
-    UARTPrint("executeCommand_TYPE Called!\r\n");
+    UARTprintf("executeCommand_TYPE Called!\r\n");
     TypeCode PrevTypeCode = PI_Struct->typeCode;
     FTP_PARSE(TypeCode(arguments, &(PI_Struct->typeCode)));
     if((PI_Struct->typeCode) == TYPECODE_UNKNOWN){
@@ -282,7 +268,7 @@ void executeCommand_STRU
     FtpPiStruct_t *PI_Struct
 )
 {
-    UARTPrint("executeCommand_STRU Called!\r\n");
+    UARTprintf("executeCommand_STRU Called!\r\n");
     FTP_PARSE(StructureCode(arguments, &(PI_Struct->structCode)));
     if((PI_Struct->structCode) != STRUCTURECODE_F){
         // The only supported structure code is File
@@ -300,7 +286,7 @@ void executeCommand_MODE
     FtpPiStruct_t *PI_Struct
 )
 {
-    UARTPrint("executeCommand_MODE Called!\r\n");
+    UARTprintf("executeCommand_MODE Called!\r\n");
     FTP_PARSE(ModeCode(arguments, &(PI_Struct->modeCode)));
     if((PI_Struct->modeCode) != MODECODE_S){
         // The only supported mode code is Stream

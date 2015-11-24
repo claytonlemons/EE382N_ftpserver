@@ -239,7 +239,7 @@
  * (requires the LWIP_TCP option)
  */
 #ifndef MEMP_NUM_TCP_PCB_LISTEN
-#define MEMP_NUM_TCP_PCB_LISTEN         8
+#define MEMP_NUM_TCP_PCB_LISTEN         50
 #endif
 
 /**

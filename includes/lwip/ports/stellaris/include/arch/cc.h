@@ -88,8 +88,11 @@ typedef u32_t               mem_ptr_t;
 // Define an empty DIAG display maro here ... since we have no knowledge of
 // what display routines are available.
 //
+
+#include "includes/utils/uartstdio.h"
+
 #ifndef LWIP_PLATFORM_DIAG
-#define LWIP_PLATFORM_DIAG(msg)
+#define LWIP_PLATFORM_DIAG(msg) UARTprintf msg;
 #endif
 
 //
@@ -102,7 +105,7 @@ typedef u32_t               mem_ptr_t;
 extern void __error__(char *pcFilename, unsigned long ulLine);
 #define LWIP_PLATFORM_ASSERT(msg)       \
 {                                       \
-    LWIP_PLATFORM_DIAG(msg);            \
+    LWIP_PLATFORM_DIAG(msg)            \
     __error__(__FILE__, __LINE__);      \
 }
 #else

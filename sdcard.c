@@ -36,7 +36,6 @@
 #include "dynamic_string.h"
 #include "stdio.h"
 #include "stdint.h"
-#include "UartDebug.h"
 #include "sdcard.h"
 
 #define CHECK_FRESULT(snippet) fresult = (snippet); if (fresult != FR_OK) goto ERROR;
@@ -102,7 +101,7 @@ bool _findNextPathSegment(const char *path, const char **segment, size_t *segmen
 {
 	if (path == NULL || segment == NULL || segmentLength == NULL)
 	{
-		UARTPrintLn("Error: NULL argument passed into _findNextPathSegment");
+		UARTprintf("Error: NULL argument passed into _findNextPathSegment\r\n");
 		return false;
 	}
 
@@ -143,8 +142,7 @@ bool resolveRelativeAbsolutePath(const Path basePath, const char *pathToJoinStri
     	else
     	{
             // Copy the path to join
-    		strcpy(joinedPath, pathToJoinString);
-    		return true;
+    		strncpy(tempPath, pathToJoinString, MAX_PATH_LENGTH);
     	}
     }
     else
@@ -192,11 +190,6 @@ bool resolveRelativeAbsolutePath(const Path basePath, const char *pathToJoinStri
         			strncat(endOfTempPath, pathToJoinString, segmentLength);
         			endOfTempPath += segmentLength;
         		}
-
-                if (*(endOfTempPath - 1) == '/')
-                {
-                	*--endOfTempPath = '\0';
-                }
         	}
 
         	pathToJoinString += segmentLength;
@@ -205,6 +198,13 @@ bool resolveRelativeAbsolutePath(const Path basePath, const char *pathToJoinStri
     }
 
     strncpy(joinedPath, tempPath, MAX_PATH_LENGTH);
+
+    size_t indexOfLastCharacterInJoinedPath = strlen(joinedPath) - 1;
+
+    if (strcmp(joinedPath, "/") != 0 && joinedPath[indexOfLastCharacterInJoinedPath] == '/')
+    {
+    	joinedPath[indexOfLastCharacterInJoinedPath] = '\0';
+    }
 
     return true;
 }
@@ -608,15 +608,3 @@ ERROR:
 //    //
 //    return(0);
 //}
-
-//*****************************************************************************
-//
-// The error routine that is called if the driver library encounters an error.
-//
-//*****************************************************************************
-#ifdef DEBUG
-void
-__error__(char *pcFilename, unsigned long ulLine)
-{
-}
-#endif
